@@ -6,8 +6,6 @@ namespace Framework
     {
         public CancellationTokenSource GetTokenSource();
 
-        public void CreateToken();
-
         public void CancelToken();
     }
 }

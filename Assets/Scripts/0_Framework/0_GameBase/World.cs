@@ -45,10 +45,9 @@ namespace Framework
 
         public T SpawnObject<T>(string key) where T : EngineObject
         {
-            var go = AssetManager.Instance.GetAsset<GameObject>(key);
-            go.TryGetComponent(out T targetObject);
-            targetObject.SetWorldContext(GetWorld());
-            return targetObject;
+            var instance = AssetManager.Instance.GetAsset<T>(key);
+            instance.SetWorldContext(GetWorld());
+            return instance;
         }
 
         public T SpawnObject<T>(T resource) where T : EngineObject

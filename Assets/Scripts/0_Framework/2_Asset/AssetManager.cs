@@ -44,19 +44,30 @@ namespace Framework
         /// </summary>
         public T GetAsset<T>(string key, Transform parent = null, bool worldPositionStays = true) where T : Object
         {
-            T asset = LoadAsset<T>(key);
+            T asset = null;
+            bool isComponent = typeof(Component).IsAssignableFrom(typeof(T)); 
+            if (isComponent)
+            {
+                GameObject gameObjectAsset = LoadAsset<GameObject>(key);
+                asset = gameObjectAsset.GetComponent<T>();
+            }
+            else
+            {
+                asset = LoadAsset<T>(key);
+            }
+            
             if (asset == null)
             {
                 return null;
             }
-            if (asset is GameObject goAsset)
+            
+            if (isComponent)
             {
-                GameObject instance = Object.Instantiate(goAsset, parent, worldPositionStays);
-                if (instance == null)
-                    return null;
+                T instance = Object.Instantiate(asset, parent, worldPositionStays);
                 _instanceCache.TryAdd(instance.GetInstanceID(), key);
-                instance.AddComponent<AssetReleaseHelper>();
-                return instance.GetComponent<T>();
+                var component = instance as Component;
+                component.gameObject.AddComponent<AssetReleaseHelper>();
+                return instance;
             }
             else
             {
@@ -86,6 +97,15 @@ namespace Framework
                 return;
             }
             assetInfo.ReferenceCount--;
+            DGLog.Log($"Asset released. {assetInfo.Key} : ReferenceCount: {assetInfo.ReferenceCount}");
+            if (asset is Component componentAsset)
+            {
+                Object.Destroy(componentAsset.gameObject);
+            }
+            else
+            {
+                Object.Destroy(asset);
+            }
             if (assetInfo.ReferenceCount <= 0)
             {
                 Addressables.Release(asset);

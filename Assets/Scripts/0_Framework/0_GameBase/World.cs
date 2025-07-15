@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
 
 namespace Framework
@@ -10,11 +11,13 @@ namespace Framework
         
         private HashSet<MonoBehaviour> _spawnedObjects = new HashSet<MonoBehaviour>();
         private Dictionary<Type, WorldSubsystem> _worldSubsystems = new();
+        private CancellationTokenSource _sceneTokenSource;
 
         public void InitWorld()
         {
             SetWorldContext(this);
             _gameMode.InitMode();
+            _sceneTokenSource = UniTaskHelper.CreateSceneToken();
         }
 
         protected override void OnDestroy()
@@ -65,6 +68,8 @@ namespace Framework
                 }
             }
             _worldSubsystems.Clear();
+            // 씬 토큰
+            UniTaskHelper.CancelSceneToken();
         }
     }
 }

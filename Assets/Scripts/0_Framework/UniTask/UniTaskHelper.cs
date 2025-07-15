@@ -34,7 +34,6 @@ namespace Framework
             {
                 _sceneTokenSource = CancellationTokenSource.CreateLinkedTokenSource(globalTokenSource.Token, new CancellationTokenSource().Token);
             }
-
             return _sceneTokenSource;
         }
 

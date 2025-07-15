@@ -5,12 +5,16 @@ namespace Framework
 {
     public abstract class EngineObject : MonoBehaviour, ICancelable
     {
+        public new Transform transform => _transform ??= base.transform;
+        public new GameObject gameObject => _gameObject ??= base.gameObject;
+        
         protected CancellationTokenSource _tokenSource;
 
         private World _worldContext;
+        private Transform _transform;
+        private GameObject _gameObject;
 
         public delegate void OnDestroyDelegate();
-
         public event OnDestroyDelegate DestroyCallback;
 
         public virtual void SetWorldContext(World worldContext)
@@ -32,11 +36,6 @@ namespace Framework
         {
             _tokenSource ??= UniTaskHelper.CreateObjectToken(this);
             return _tokenSource;
-        }
-
-        public void CreateToken()
-        {
-            throw new System.NotImplementedException();
         }
 
         public void CancelToken()

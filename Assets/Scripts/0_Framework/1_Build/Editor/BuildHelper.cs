@@ -91,12 +91,10 @@ namespace Framework
             if (mode == EBuildMode.Debug)
             {
                 DevModeSwitcher.SetDebugMode();
-                DGLog.EnableLog();
             }
             else if (mode == EBuildMode.Release)
             {
                 DevModeSwitcher.SetReleaseMode();
-                DGLog.DisableLog();
             }
 
             var option = new BuildPlayerOptions();

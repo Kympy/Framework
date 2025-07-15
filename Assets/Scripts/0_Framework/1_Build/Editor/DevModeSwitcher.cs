@@ -2,16 +2,14 @@
 
 namespace Framework
 {
-    public class DevModeSwitcher
+    public static class DevModeSwitcher
     {
-        private const string debug_Define = "DEBUG_BUILD";
-        private const string release_Define = "RELEASE_BUILD";
+        public const string DebugDefine = "DEBUG_BUILD";
     
         [MenuItem("Build/Switch Mode/Debug")]
         public static void SetDebugMode()
         {
-            DefineSymbolManager.RemoveSymbol(release_Define);
-            DefineSymbolManager.AddSymbol(debug_Define);
+            DefineSymbolManager.AddSymbol(DebugDefine);
             
             UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
         }
@@ -19,8 +17,7 @@ namespace Framework
         [MenuItem("Build/Switch Mode/Release")]
         public static void SetReleaseMode()
         {
-            DefineSymbolManager.RemoveSymbol(debug_Define);
-            DefineSymbolManager.AddSymbol(release_Define);
+            DefineSymbolManager.RemoveSymbol(DebugDefine);
             
             UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
         }

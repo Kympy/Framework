@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Framework
 {
@@ -14,6 +15,11 @@ namespace Framework
 
         public virtual void InitHUD()
         {
+            _uiCamera.orthographic = true;
+            if (_mainCanvas.TryGetComponent(out CanvasScaler canvasScaler))
+            {
+                _uiCamera.orthographicSize = canvasScaler.referenceResolution.y * 0.5f;
+            }
         }
 
         private T CreatePanel<T>() where T : PanelBase

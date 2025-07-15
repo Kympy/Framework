@@ -39,6 +39,9 @@ namespace Framework
             return typedAssetInfo.Handle.Result;
         }
         
+        /// <summary>
+        /// Material, Sprite 등 사용했으면 반드시 Release 해주기.
+        /// </summary>
         public T GetAsset<T>(string key, Transform parent = null, bool worldPositionStays = true) where T : Object
         {
             T asset = LoadAsset<T>(key);

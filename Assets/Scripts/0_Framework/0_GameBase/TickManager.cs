@@ -12,15 +12,18 @@ namespace Framework
         
         private bool _isTicking = false;
         
+        public static float DeltaTime { get; private set; }
+        public static float FixedDeltaTime { get; private set; }
+        
         private void Update()
         {
             if (_ticks.IsValueCreated == false) return;
             if (!_isTicking) return;
-            float deltaTime = Time.deltaTime;
+            DeltaTime = Time.deltaTime;
             int targetCount = _ticks.Value.Count;
             for (int i = 0; i < targetCount; i++)
             {
-                _ticks.Value[i].Tick(deltaTime);
+                _ticks.Value[i].Tick(DeltaTime);
             }
         }
         
@@ -28,11 +31,11 @@ namespace Framework
         {
             if (_fixedTicks.IsValueCreated == false) return;
             if (!_isTicking) return;
-            float fixedDeltaTime = Time.fixedDeltaTime;
+            FixedDeltaTime = Time.fixedDeltaTime;
             int targetCount = _fixedTicks.Value.Count;
             for (int i = 0; i < targetCount; i++)
             {
-                _fixedTicks.Value[i].FixedTick(fixedDeltaTime);
+                _fixedTicks.Value[i].FixedTick(FixedDeltaTime);
             }
         }
         
@@ -40,11 +43,10 @@ namespace Framework
         {
             if (_lateTicks.IsValueCreated == false) return;
             if (!_isTicking) return;
-            float deltaTime = Time.deltaTime;
             int targetCount = _lateTicks.Value.Count;
             for (int i = 0; i < targetCount; i++)
             {
-                _lateTicks.Value[i].LateTick(deltaTime);
+                _lateTicks.Value[i].LateTick(DeltaTime);
             }
         }
 

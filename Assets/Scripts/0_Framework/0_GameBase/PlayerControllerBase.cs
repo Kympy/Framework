@@ -1,11 +1,12 @@
 ﻿using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Framework
 {
     public class PlayerControllerBase : EngineObject
     {
-        protected PlayerInputActions _inputActions;
-        protected Pawn _possessedPawn;
+        private PlayerInputActions _inputActions;
+        private Pawn _possessedPawn;
 
         public virtual void InitController()
         {
@@ -26,11 +27,17 @@ namespace Framework
             _possessedPawn = null;
         }
 
+        public Pawn GetPawn()
+        {
+            return _possessedPawn;
+        }
+
         protected virtual void BindInputActions()
         {
             _inputActions = new PlayerInputActions();
             SetInputMode(EInputMode.Player);
-            // _inputActions.Player.Move.performed += something;
+            _inputActions.Player.Move.performed += AddMovementInput;
+            _inputActions.Player.Jump.performed += Jump;
         }
         
         public void SetInputMode(EInputMode inputMode)
@@ -51,6 +58,17 @@ namespace Framework
                     _inputActions.UI.Enable();
                     break;
             }
+        }
+
+        protected virtual void AddMovementInput(InputAction.CallbackContext context)
+        {
+            Vector2 input = context.ReadValue<Vector2>();
+            GetPawn().AddMovementInput(input);
+        }
+
+        protected virtual void Jump(InputAction.CallbackContext context)
+        {
+            
         }
     }
 }

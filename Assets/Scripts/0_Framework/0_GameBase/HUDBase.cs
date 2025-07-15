@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Framework
 {
-    public class HUDBase : MonoBehaviour
+    public class HUDBase : EngineObject
     {
         [SerializeField] protected Canvas _mainCanvas;
         [SerializeField] protected Camera _uiCamera;

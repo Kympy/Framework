@@ -2,27 +2,57 @@ using UnityEngine;
 
 namespace Framework
 {
-    [System.Serializable]
     public class GameModeBase : EngineObject
     {
         [SerializeField] protected Camera _mainCamera;
-        [SerializeField] protected PlayerControllerBase _playerController;
-        [SerializeField] protected HUDBase _hud;
+        [SerializeField] protected Pawn _defaultPawnPrefab;
+        [SerializeField] protected PlayerControllerBase _playerControllerPrefab;
+        [SerializeField] protected HUDBase _hudPrefab;
+        
+        private PlayerControllerBase _playerController;
+        private HUDBase _hud;
 
         public virtual void InitMode()
         {
-            
-        }
-        
-        public override void SetWorldContext(World worldContext)
-        {
-            base.SetWorldContext(worldContext);
-            _playerController.SetWorldContext(worldContext);
+            DGLog.Log(GetType(), "Initializing Game Mode...", Color.yellow);
+            SpawnPlayerController();
+            SpawnHUD();
         }
 
-        public virtual void SpawnPlayer()
+        protected virtual void SpawnPlayerController()
         {
-            GetWorld().SpawnObject<Actor>("asdf");
+            if (_playerControllerPrefab == null)
+            {
+                DGLog.LogWarning("PlayerControllerPrefab is not set.");
+                return;
+            }
+            DGLog.Log(GetType(), "Spawning Player Controller...", Color.yellow);
+            var playerController = GetWorld().SpawnObject(_playerControllerPrefab);
+            _playerController = playerController;
+            _playerController.InitController();
+        }
+
+        protected virtual void SpawnHUD()
+        {
+            if (_hudPrefab == null)
+            {
+                DGLog.LogWarning("HUDPrefab is not set.");
+                return;
+            }
+            DGLog.Log(GetType(), "Spawning HUD...", Color.yellow);
+            var hud = GetWorld().SpawnObject(_hudPrefab);
+            _hud = hud;
+            _hud.InitHUD();
+        }
+
+        protected virtual void CreatePawn()
+        {
+            if (_defaultPawnPrefab == null) return;
+            var pawn = GetWorld().SpawnObject(_defaultPawnPrefab);
+            if (_playerController != null)
+            {
+                _playerController.Possess(pawn);
+            }
         }
     }
 }

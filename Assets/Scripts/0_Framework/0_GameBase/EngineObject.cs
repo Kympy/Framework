@@ -17,7 +17,7 @@ namespace Framework
         public delegate void OnDestroyDelegate();
         public event OnDestroyDelegate DestroyCallback;
 
-        public virtual void SetWorldContext(World worldContext)
+        public void SetWorldContext(World worldContext)
         {
             _worldContext = worldContext;
         }

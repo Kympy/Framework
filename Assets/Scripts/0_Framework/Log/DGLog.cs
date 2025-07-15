@@ -36,6 +36,18 @@ public class DGLog
         else
             Debug.Log($"[{typeof(T)}] : {log}");
     }
+    
+    [Conditional(DebugDefine)]
+    public static void Log(System.Type type, string log, Color color = default)
+    {
+        if (color != default)
+        {
+            string fullLog = $"[{type.Name}] : {log}";
+            Debug.Log(fullLog.AddColor(color));
+        }
+        else
+            Debug.Log($"[{type.Name}] : {log}");
+    }
 
     [Conditional(DebugDefine)]
     public static void LogWarning(string log) { Debug.LogWarning(log); }

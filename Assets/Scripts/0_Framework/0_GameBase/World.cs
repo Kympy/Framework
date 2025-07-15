@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Framework
 {
@@ -44,8 +45,18 @@ namespace Framework
 
         public T SpawnObject<T>(string key) where T : EngineObject
         {
-            
-            return null;
+            var go = AssetManager.Instance.GetAsset<GameObject>(key);
+            go.TryGetComponent(out T targetObject);
+            targetObject.SetWorldContext(GetWorld());
+            return targetObject;
+        }
+
+        public T SpawnObject<T>(T resource) where T : EngineObject
+        {
+            T instanceObject = Instantiate(resource);
+            _spawnedObjects.Add(instanceObject);
+            instanceObject.SetWorldContext(GetWorld());
+            return instanceObject;
         }
 
         private void DestroyWorldInternal()

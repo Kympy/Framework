@@ -15,7 +15,7 @@ namespace Framework
         {
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo) == false)
             {
-                AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(key);
+                var handle = Addressables.LoadAssetAsync<T>(key); 
                 handle.WaitForCompletion();
                 if (handle.Status == AsyncOperationStatus.Failed)
                 {
@@ -111,6 +111,12 @@ namespace Framework
                 _assetCache.Remove(keysToRemove[i]);
             }
             ArrayPool<string>.Shared.Return(keysToRemove);
+        }
+
+        private bool IsGameObjectType<T>()
+        {
+            bool isGameObject = typeof(T) != typeof(Material) && typeof(T) != typeof(Sprite) && typeof(T) != typeof(Texture2D) && typeof(T) != typeof(AudioClip) && typeof(T) != typeof(Texture) && typeof(T) != typeof(AnimationClip) && typeof(T) != typeof(Shader) && typeof(T) != typeof(TextAsset);
+            return isGameObject;
         }
     }
 }

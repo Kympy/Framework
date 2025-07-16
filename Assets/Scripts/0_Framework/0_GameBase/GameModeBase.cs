@@ -7,10 +7,10 @@ namespace Framework
         [SerializeField] protected Camera _mainCamera;
         [SerializeField] protected Pawn _defaultPawnPrefab;
         [SerializeField] protected PlayerControllerBase _playerControllerPrefab;
-        [SerializeField] protected HUDBase _hudPrefab;
+        [SerializeField] protected HUD _hudPrefab;
         
         private PlayerControllerBase _playerController;
-        private HUDBase _hud;
+        private HUD _hud;
 
         public virtual void InitMode()
         {

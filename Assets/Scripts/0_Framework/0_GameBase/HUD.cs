@@ -1,19 +1,18 @@
+using Framework.Extensions;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Object = System.Object;
 
 namespace Framework
 {
-    public class HUDBase : EngineObject
+    public class HUD : EngineObject
     {
         [SerializeField] protected Canvas _mainCanvas;
         [SerializeField] protected Camera _uiCamera;
 
         protected LinkedList<PanelBase> _activePanels = new LinkedList<PanelBase>();
         protected Dictionary<Type, PanelBase> _cachedPanels = new Dictionary<Type, PanelBase>();
-        protected Stack<PopupBase> _activePopupStack = new Stack<PopupBase>();
 
         public virtual void InitHUD()
         {
@@ -21,6 +20,7 @@ namespace Framework
             if (_mainCanvas.TryGetComponent(out CanvasScaler canvasScaler))
             {
                 _uiCamera.orthographicSize = canvasScaler.referenceResolution.y * 0.5f;
+                canvasScaler.SetCanvasMatchWidthOrHeight();
             }
         }
 
@@ -28,7 +28,6 @@ namespace Framework
         {
             base.OnDestroy();
             ClearAllPanels();
-            ClearAllPopups();
         }
 
         public T ShowPanel<T>(IPanelParameter parameter = null) where T : PanelBase
@@ -67,21 +66,7 @@ namespace Framework
             }
         }
 
-        public T ShowPopup<T>(string key, IPopupParameter parameter = null) where T : PopupBase
-        {
-            T popup = CreatePopup<T>(key);
-            popup.BeforeShow(parameter);
-            popup.gameObject.SetActive(true);
-            _activePopupStack.Push(popup);
-            return popup;
-        }
-
-        public void ClosePopup()
-        {
-            if (_activePopupStack.Count == 0) return;
-            var popup = _activePopupStack.Pop();
-            AssetManager.Instance.ReleaseAsset(popup);
-        }
+        
         
         private T CreatePanel<T>() where T : PanelBase
         {
@@ -92,33 +77,18 @@ namespace Framework
             return panel as T;
         }
 
-        private T CreatePopup<T>(string key) where T : PopupBase
-        {
-            var popupObject = AssetManager.Instance.GetAsset<T>(UIAsset.GetKey<T>(), _mainCanvas.transform);
-            return popupObject;
-        }
-
         private void ClearAllPanels()
         {
             foreach (var panel in _activePanels)
             {
-                AssetManager.Instance.ReleaseAsset(panel);
+                Destroy(panel.gameObject);
             }
             _activePanels.Clear();
             foreach (var panel in _cachedPanels)
             {
-                AssetManager.Instance.ReleaseAsset(panel.Value);
+                Destroy(panel.Value.gameObject);
             }
             _cachedPanels.Clear();
-        }
-
-        private void ClearAllPopups()
-        {
-            while (_activePopupStack.Count > 0)
-            {
-                var popup = _activePopupStack.Pop();
-                AssetManager.Instance.ReleaseAsset(popup);
-            }
         }
     }
 }

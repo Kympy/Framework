@@ -14,13 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_GroupName: Remote_Test.prefab
   m_GUID: 6ee4d4cc545e04b4f9beae3db9297b54
-  m_SerializeEntries:
-  - m_GUID: 0e02d8cea49228341b2a7c5e66dad6be
-    m_Address: Test
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Remote
-    FlaggedDuringContentUpdateRestriction: 0
+  m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 7dbde31b794197c46b31dbba96484c2e, type: 2}
   m_SchemaSet:

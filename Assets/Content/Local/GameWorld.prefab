@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 3908276462036579497, guid: d041d4ebf04db430b907374eb51ed089, type: 3}
+      propertyPath: m_TagString
+      value: MainCamera
+      objectReference: {fileID: 0}
     - target: {fileID: 3957791973564828318, guid: d041d4ebf04db430b907374eb51ed089, type: 3}
       propertyPath: m_Name
       value: GameWorld
@@ -65,11 +69,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 2080578726677539247}
   m_SourcePrefab: {fileID: 100100000, guid: d041d4ebf04db430b907374eb51ed089, type: 3}
---- !u!20 &7132558856053877954 stripped
-Camera:
-  m_CorrespondingSourceObject: {fileID: 7090028778249811906, guid: d041d4ebf04db430b907374eb51ed089, type: 3}
-  m_PrefabInstance: {fileID: 44798392983362304}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &8575336402830984494 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 8619486031072173614, guid: d041d4ebf04db430b907374eb51ed089, type: 3}
@@ -84,8 +83,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 8575336402830984494}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42e4901b1311d494a8d81a991bb4d4f2, type: 3}
+  m_Script: {fileID: 11500000, guid: 79285f41f643bf848bd1a537ba6503a3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _mainCamera: {fileID: 7132558856053877954}
-  _playerController: {fileID: 0}
+  _mainCamera: {fileID: 0}
+  _defaultPawnPrefab: {fileID: 0}
+  _playerControllerPrefab: {fileID: 0}
+  _hudPrefab: {fileID: 0}

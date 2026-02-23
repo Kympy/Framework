@@ -1,0 +1,251 @@
+#if DOTWEEN
+using Cysharp.Threading.Tasks;
+using DG.Tweening;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace DragonGate
+{
+    public static class CameraExtensions
+    {
+#if DOTWEEN && UNITASK_DOTWEEN_SUPPORT
+        public static async UniTask DOZoom(this Camera camera, ICancelable cancelable, float zoomValue, float duration, bool ignoreTimeScale = true)
+        {
+            if (camera.orthographic == false)
+            {
+                var zoomTween = camera.DOFieldOfView(zoomValue, duration).SetEase(Ease.Linear).SetUpdate(ignoreTimeScale);
+                await UniTaskHelper.WaitTween(cancelable, zoomTween);
+            }
+            else
+            {
+                var zoomTween = camera.DOOrthoSize(zoomValue, duration).SetEase(Ease.Linear).SetUpdate(ignoreTimeScale);
+                await UniTaskHelper.WaitTween(cancelable, zoomTween);
+            }
+        }
+        
+        public static async UniTask DOZoomPosition(this Camera camera, ICancelable cancelable, float zoomValue, Vector3 position, float duration, bool ignoreTimeScale = true)
+        {
+            Tween zoomTween;
+            Tween moveTween = camera.transform.DOMove(position, duration)
+                .SetEase(Ease.Linear)
+                .SetUpdate(ignoreTimeScale);
+
+            if (camera.orthographic == false)
+            {
+                zoomTween = camera.DOFieldOfView(zoomValue, duration)
+                    .SetEase(Ease.Linear)
+                    .SetUpdate(ignoreTimeScale);
+            }
+            else
+            {
+                zoomTween = camera.DOOrthoSize(zoomValue, duration)
+                    .SetEase(Ease.Linear)
+                    .SetUpdate(ignoreTimeScale);
+            }
+
+            // 줌 + 이동을 동시에 실행
+            var sequence = DOTween.Sequence()
+                .Join(moveTween)
+                .Join(zoomTween);
+
+            await UniTaskHelper.WaitTween(cancelable, sequence);
+        }
+#endif
+
+        /// <summary>
+        /// Shake this camera using the central CameraShaker manager (per-camera rest position is preserved).
+        /// </summary>
+        public static void Shake(this Camera target, float duration, Vector3 strength, bool ignoreTimeScale = false)
+        {
+            if (target == null) return;
+            if (CameraShaker.HasInstance == false) return;
+            CameraShaker.Instance.Shake(target, duration, strength, ignoreTimeScale);
+        }
+
+        /// <summary>
+        /// Shake this camera with uniform (x=y) strength using the central CameraShaker manager.
+        /// </summary>
+        public static void Shake(this Camera target, float duration, float strength, bool ignoreTimeScale = false)
+        {
+            if (target == null) return;
+            if (CameraShaker.HasInstance == false) return;
+            CameraShaker.Instance.Shake(target, duration, strength, ignoreTimeScale);
+        }
+
+        /// <summary>
+        /// Register this camera to the CameraShaker (optional; Shake auto-registers if needed).
+        /// </summary>
+        public static void RegisterToShaker(this Camera target)
+        {
+            if (target == null) return;
+            if (CameraShaker.HasInstance == false) return;
+            CameraShaker.Instance.AddCamera(target);
+        }
+
+        /// <summary>
+        /// Unregister this camera from the CameraShaker and restore its rest position.
+        /// </summary>
+        public static void UnregisterFromShaker(this Camera target)
+        {
+            if (target == null) return;
+            if (CameraShaker.HasInstance == false) return;
+            CameraShaker.Instance.RemoveCamera(target);
+        }
+    }
+
+    public class CameraShaker : Singleton<CameraShaker>
+    {
+        // Registered cameras and per-camera state
+        private readonly Dictionary<int, Camera> _cameras = new Dictionary<int, Camera>();
+        private readonly Dictionary<int, Vector3> _defaultLocalPositions = new Dictionary<int, Vector3>();
+        private readonly Dictionary<int, Tween> _activeTweens = new Dictionary<int, Tween>();
+
+        /// <summary>
+        /// Register a camera to be shake-controlled. Safe to call multiple times.
+        /// Caches its current localPosition as the rest/default position.
+        /// </summary>
+        public void AddCamera(Camera camera)
+        {
+            if (camera == null) return;
+            int key = camera.gameObject.GetInstanceID();
+            if (_cameras.ContainsKey(key)) return;
+
+            _cameras.Add(key, camera);
+            _defaultLocalPositions[key] = camera.transform.localPosition;
+        }
+
+        /// <summary>
+        /// Unregister a camera and kill any active tween on it, restoring its default local position.
+        /// </summary>
+        public void RemoveCamera(Camera camera)
+        {
+            if (camera == null) return;
+            int key = camera.gameObject.GetInstanceID();
+            if (_activeTweens.TryGetValue(key, out var tw) && tw.IsActive())
+            {
+                tw.Kill(true);
+            }
+
+            // Reset to cached rest position if we had one
+            if (_defaultLocalPositions.TryGetValue(key, out var rest))
+            {
+                camera.transform.localPosition = rest;
+            }
+
+            _activeTweens.Remove(key);
+            _defaultLocalPositions.Remove(key);
+            _cameras.Remove(key);
+        }
+
+        // public void ShakeMain(float duration, Vector3 strength, bool ignoreTimeScale = false)
+        // {
+        //     var mainCamera = GamePlayStatics.GetGameMode().MainCamera;
+        //     if (mainCamera == null)
+        //     {
+        //         Shake(Camera.main, duration, strength, ignoreTimeScale);
+        //     }
+        //     else
+        //     {
+        //         Shake(mainCamera, duration, strength, ignoreTimeScale);
+        //     }
+        // }
+        //
+        // public void ShakeMain(float duration, float strength, bool ignoreTimeScale = false)
+        // {
+        //     var mainCamera = GamePlayStatics.GetGameMode().MainCamera;
+        //     if (mainCamera == null)
+        //     {
+        //         Shake(Camera.main, duration, strength, ignoreTimeScale);
+        //     }
+        //     else
+        //     {
+        //         Shake(mainCamera, duration, strength, ignoreTimeScale);
+        //     }
+        // }
+
+        /// <summary>
+        /// Shake a specific camera.
+        /// </summary>
+        /// <param name="camera">Camera to shake. Will be auto-registered if not already.</param>
+        /// <param name="duration">Shake duration in seconds.</param>
+        /// <param name="strength">Per-axis strength (x,y,z).</param>
+        /// <param name="ignoreTimeScale">If true, uses unscaled time.</param>
+        public void Shake(Camera camera, float duration, Vector3 strength, bool ignoreTimeScale = false)
+        {
+            if (camera == null) return;
+            // if (GameOptionManager.Values.CameraShake == false) return;
+            int key = camera.gameObject.GetInstanceID();
+            if (!_cameras.ContainsKey(key))
+            {
+                AddCamera(camera);
+            }
+
+            // Kill previous tween (if any) and reset to rest position before starting a new shake
+            if (_activeTweens.TryGetValue(key, out var prev) && prev.IsActive())
+            {
+                prev.Kill(true);
+            }
+
+            var t = camera.transform;
+            t.localPosition = _defaultLocalPositions[key];
+
+            var tween = t.DOShakePosition(duration, strength)
+                .SetUpdate(ignoreTimeScale)
+                .OnComplete(() => t.localPosition = _defaultLocalPositions[key]);
+
+            _activeTweens[key] = tween;
+        }
+
+        /// <summary>
+        /// Shake a specific camera with uniform strength.
+        /// </summary>
+        public void Shake(Camera camera, float duration, float strength, bool ignoreTimeScale = false)
+            => Shake(camera, duration, new Vector3(strength, strength, 0f), ignoreTimeScale);
+
+        /// <summary>
+        /// Shake all registered cameras.
+        /// </summary>
+        public void ShakeAll(float duration, Vector3 strength, bool ignoreTimeScale = false)
+        {
+            foreach (var kv in _cameras)
+            {
+                Shake(kv.Value, duration, strength, ignoreTimeScale);
+            }
+        }
+
+        public void ShakeAll(float duration, float strength, bool ignoreTimeScale = false)
+            => ShakeAll(duration, new Vector3(strength, strength, 0f), ignoreTimeScale);
+
+        /// <summary>
+        /// Immediately reset a camera to its cached rest local position and kill any active tween.
+        /// </summary>
+        public void Reset(Camera camera)
+        {
+            if (camera == null) return;
+            int key = camera.gameObject.GetInstanceID();
+            if (_activeTweens.TryGetValue(key, out var tw) && tw.IsActive())
+            {
+                tw.Kill(true);
+            }
+            if (_defaultLocalPositions.TryGetValue(key, out var rest))
+            {
+                camera.transform.localPosition = rest;
+            }
+        }
+
+        /// <summary>
+        /// Reset and clear all registered cameras/tweens.
+        /// </summary>
+        public void ClearAll()
+        {
+            foreach (var kv in _cameras)
+            {
+                Reset(kv.Value);
+            }
+            _activeTweens.Clear();
+            _defaultLocalPositions.Clear();
+            _cameras.Clear();
+        }
+    }
+}
+#endif

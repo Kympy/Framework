@@ -42,5 +42,34 @@ namespace DragonGate
             direction.Normalize();
             return direction;
         }
+
+        public static Vector3 ToInt(this Vector3 self)
+        {
+            return new Vector3(Mathf.RoundToInt(self.x), Mathf.RoundToInt(self.y), Mathf.RoundToInt(self.z)); 
+        }
+        
+        public static Vector3 Snap(this Vector3 value, float gridSize)
+        {
+            return new Vector3(
+                Mathf.Round(value.x / gridSize) * gridSize,
+                Mathf.Round(value.y / gridSize) * gridSize,
+                Mathf.Round(value.z / gridSize) * gridSize
+            );
+        }
+        
+        public static Vector3 SnapXZ(this Vector3 value, float gridSize)
+        {
+            return new Vector3(
+                Mathf.Round(value.x / gridSize) * gridSize,
+                value.y,
+                Mathf.Round(value.z / gridSize) * gridSize
+            );
+        }
+
+        public static Vector3 GetRandomCirclePoint(this Vector3 self, float radius = 1f)
+        {
+            var randomValue = Random.insideUnitCircle * radius;
+            return self + new Vector3(randomValue.x, 0, randomValue.y);
+        }
     }
 }

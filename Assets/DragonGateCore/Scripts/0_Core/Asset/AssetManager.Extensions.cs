@@ -11,5 +11,10 @@ namespace DragonGate
         {
             image.sprite = AssetManager.Instance.GetAsset<Sprite>(key);
         }
+
+        public static void SetSprite(this SpriteRenderer spriteRenderer, string key)
+        {
+            spriteRenderer.sprite = AssetManager.Instance.GetAsset<Sprite>(key);
+        }
     }
 }

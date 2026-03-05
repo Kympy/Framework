@@ -27,5 +27,11 @@ namespace DragonGate
                 (array[i], array[targetIndex]) = (array[targetIndex], array[i]);
             }
         }
+
+        // 널이 아니고 길이가 1 이상인지?
+        public static bool IsValid<T>(this T[] array)
+        {
+            return array is { Length: > 0 };
+        }
     }
 }

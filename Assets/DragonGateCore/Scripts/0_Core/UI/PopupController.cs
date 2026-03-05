@@ -172,7 +172,7 @@ namespace DragonGate
                 container.SetActive(true);
                 return container;
             }
-            
+
             if (_popupContainer == null)
             {
                 var loaded = Resources.Load<GameObject>(ContainerPrefabKey);

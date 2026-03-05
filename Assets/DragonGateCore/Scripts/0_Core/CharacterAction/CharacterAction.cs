@@ -36,7 +36,7 @@ namespace DragonGate
 
         public void Cancel(Pawn pawn)
         {
-            ActionDefinition.Cancel(pawn);
+            ActionDefinition.Cancel(pawn, Parameter);
         }
     }
 }

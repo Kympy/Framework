@@ -55,11 +55,11 @@ namespace DragonGate
         /// <summary>
         /// Shake this camera using the central CameraShaker manager (per-camera rest position is preserved).
         /// </summary>
-        public static void Shake(this Camera target, float duration, Vector3 strength, bool ignoreTimeScale = false)
+        public static Tween Shake(this Camera target, float duration, Vector3 strength, bool ignoreTimeScale = false)
         {
-            if (target == null) return;
-            if (CameraShaker.HasInstance == false) return;
-            CameraShaker.Instance.Shake(target, duration, strength, ignoreTimeScale);
+            if (target == null) return null;
+            if (CameraShaker.HasInstance == false) return null;
+            return CameraShaker.Instance.Shake(target, duration, strength, ignoreTimeScale);
         }
 
         /// <summary>
@@ -97,7 +97,6 @@ namespace DragonGate
     {
         // Registered cameras and per-camera state
         private readonly Dictionary<int, Camera> _cameras = new Dictionary<int, Camera>();
-        private readonly Dictionary<int, Vector3> _defaultLocalPositions = new Dictionary<int, Vector3>();
         private readonly Dictionary<int, Tween> _activeTweens = new Dictionary<int, Tween>();
 
         /// <summary>
@@ -111,7 +110,6 @@ namespace DragonGate
             if (_cameras.ContainsKey(key)) return;
 
             _cameras.Add(key, camera);
-            _defaultLocalPositions[key] = camera.transform.localPosition;
         }
 
         /// <summary>
@@ -126,14 +124,7 @@ namespace DragonGate
                 tw.Kill(true);
             }
 
-            // Reset to cached rest position if we had one
-            if (_defaultLocalPositions.TryGetValue(key, out var rest))
-            {
-                camera.transform.localPosition = rest;
-            }
-
             _activeTweens.Remove(key);
-            _defaultLocalPositions.Remove(key);
             _cameras.Remove(key);
         }
 
@@ -170,9 +161,9 @@ namespace DragonGate
         /// <param name="duration">Shake duration in seconds.</param>
         /// <param name="strength">Per-axis strength (x,y,z).</param>
         /// <param name="ignoreTimeScale">If true, uses unscaled time.</param>
-        public void Shake(Camera camera, float duration, Vector3 strength, bool ignoreTimeScale = false)
+        public Tween Shake(Camera camera, float duration, Vector3 strength, bool ignoreTimeScale = false)
         {
-            if (camera == null) return;
+            if (camera == null) return null;
             // if (GameOptionManager.Values.CameraShake == false) return;
             int key = camera.gameObject.GetInstanceID();
             if (!_cameras.ContainsKey(key))
@@ -187,13 +178,12 @@ namespace DragonGate
             }
 
             var t = camera.transform;
-            t.localPosition = _defaultLocalPositions[key];
 
             var tween = t.DOShakePosition(duration, strength)
-                .SetUpdate(ignoreTimeScale)
-                .OnComplete(() => t.localPosition = _defaultLocalPositions[key]);
+                .SetUpdate(ignoreTimeScale);
 
             _activeTweens[key] = tween;
+            return tween;
         }
 
         /// <summary>
@@ -227,10 +217,6 @@ namespace DragonGate
             {
                 tw.Kill(true);
             }
-            if (_defaultLocalPositions.TryGetValue(key, out var rest))
-            {
-                camera.transform.localPosition = rest;
-            }
         }
 
         /// <summary>
@@ -243,7 +229,6 @@ namespace DragonGate
                 Reset(kv.Value);
             }
             _activeTweens.Clear();
-            _defaultLocalPositions.Clear();
             _cameras.Clear();
         }
     }

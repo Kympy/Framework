@@ -8,14 +8,20 @@ namespace DragonGate
     {
         // 공용 애니메이션 타입
         protected enum EAnimationType { None, FadeIn, FadeOut, ScaleUp, ScaleDown }
-        
+        [Header("Animation Type")]
         [SerializeField] protected EAnimationType _openAnimation = EAnimationType.None;
         [SerializeField] protected EAnimationType _closeAnimation = EAnimationType.None;
 
+        
+        protected CanvasGroup CanvasGroup => _canvasGroup == null ? gameObject.GetOrAddComponent<CanvasGroup>() : _canvasGroup;
+        
+        private CanvasGroup _canvasGroup;
         private Coroutine _animationCoroutine;
+        private const float _fadeSpeed = 5f;
 
         protected void Animate(EAnimationType animationType, UnityAction onComplete = null)
         {
+            if (isActiveAndEnabled == false) return;
             StartCoroutine(PlayAnimation(animationType, onComplete));
         }
 
@@ -41,7 +47,11 @@ namespace DragonGate
         {
             switch (animationType)
             {
-                case EAnimationType.FadeIn: return Fade(1);
+                case EAnimationType.FadeIn:
+                {
+                    CanvasGroup.alpha = 0;
+                    return Fade(1);
+                }
                 case EAnimationType.FadeOut: return Fade(0);
                 case EAnimationType.ScaleUp: return ScaleUp();
                 case EAnimationType.ScaleDown: return ScaleDown();
@@ -62,30 +72,20 @@ namespace DragonGate
             Animate(_closeAnimation, callback);
         }
 
-        private IEnumerator FadeIn()
-        {
-            return Fade(1);
-        }
-
-        private IEnumerator FadeOut()
-        {
-            return Fade(0);
-        }
-
         private IEnumerator Fade(float targetAlpha)
         {
-            var canvasGroup = gameObject.GetOrAddComponent<CanvasGroup>();
+            var canvasGroup = CanvasGroup;
             bool decrease = targetAlpha <= canvasGroup.alpha; 
             while (canvasGroup.alpha.IsSame(targetAlpha) == false)
             {
                 yield return null;
                 if (decrease)
                 {
-                    canvasGroup.alpha -= Time.deltaTime;
+                    canvasGroup.alpha -= Time.unscaledDeltaTime * _fadeSpeed;
                 }
                 else
                 {
-                    canvasGroup.alpha += Time.deltaTime;
+                    canvasGroup.alpha += Time.unscaledDeltaTime * _fadeSpeed;
                 }
                 canvasGroup.alpha = canvasGroup.alpha.Clamp01();
             }
@@ -112,7 +112,7 @@ namespace DragonGate
                 {
                     break;
                 }
-                transform.localScale = Vector3.Lerp(transform.localScale, endScale, Time.deltaTime * 30f);
+                transform.localScale = Vector3.Lerp(transform.localScale, endScale, Time.unscaledDeltaTime * 30f);
             }
             transform.localScale = endScale;
         }

@@ -48,6 +48,29 @@ namespace DragonGate
 
             return false;
         }
+        
+        public static bool IsLeftClickHolding()
+        {
+            if (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                return true;
+
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
+                return true;
+
+            return false;
+        }
+        
+        public static bool IsLeftClickReleased()
+        {
+            if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
+                return true;
+
+            if (Touchscreen.current != null && 
+                Touchscreen.current.primaryTouch.press.wasReleasedThisFrame)
+                return true;
+
+            return false;
+        }
 
         public static bool IsRightClickTriggered()
         {
@@ -67,6 +90,24 @@ namespace DragonGate
                 return false;
             }
             return Keyboard.current.escapeKey.isPressed;
+        }
+
+        public static bool EscWasPressedThisFrame()
+        {
+            if (Keyboard.current == null) return false;
+            return Keyboard.current.escapeKey.wasPressedThisFrame;
+        }
+        
+        public static bool IsPointerOutsideGameWindow()
+        {
+            Vector3 mousePosition = Input.mousePosition;
+
+            if (mousePosition.x < 0) return true;
+            if (mousePosition.y < 0) return true;
+            if (mousePosition.x > Screen.width) return true;
+            if (mousePosition.y > Screen.height) return true;
+
+            return false;
         }
     }
 }

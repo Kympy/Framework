@@ -16,7 +16,6 @@ namespace DragonGate
         
         private readonly Queue<ICharacterAction> _actionQueue = new();
         private bool _isExecuting;
-        private bool _isCancelRequested;
         private Pawn _owner;
         private ICharacterAction _currentAction;
 
@@ -61,8 +60,6 @@ namespace DragonGate
 
             while (_actionQueue.Count > 0)
             {
-                _isCancelRequested = false;
-                
                 _currentAction = _actionQueue.Dequeue();
                 await _currentAction.Execute(_owner);
                 // 소유자가 null 이면 큐 진행 자체를 중단.
@@ -75,17 +72,13 @@ namespace DragonGate
 
         public void CancelCurrentAction()
         {
-            _isCancelRequested = true;
+            _currentAction?.Cancel(_owner);
+            _owner.CancelToken();
         }
 
         public void ClearQueue()
         {
             _actionQueue.Clear();
-        }
-
-        public bool IsCancelRequested()
-        {
-            return _isCancelRequested;
         }
     }
 }

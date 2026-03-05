@@ -91,7 +91,7 @@ namespace DragonGate
             {
                 _panelCanvas = new GameObject("Panel Canvas").AddComponent<Canvas>();
                 _panelCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                _panelCanvas.sortingOrder = 0;
+                _panelCanvas.sortingOrder = UISortOrder.Panel;
 
                 _panelCanvas.AddComponent<GraphicRaycaster>();
                 var scaler = _panelCanvas.AddComponent<CanvasScaler>();

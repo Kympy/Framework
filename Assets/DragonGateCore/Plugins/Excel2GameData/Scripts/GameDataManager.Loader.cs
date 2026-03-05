@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using DragonGate;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -69,7 +68,7 @@ public partial class GameDataManager
 
     private static T[] FromJson<T>(string textData) where T : IGameData<T>
     {
-        var json = JsonUtility.FromJson<Wrapper<T>>(textData);
+        var json = Newtonsoft.Json.JsonConvert.DeserializeObject<Wrapper<T>>(textData);
         if (json == null)
         {
             UnityEngine.Debug.LogError($"json is null {textData}");

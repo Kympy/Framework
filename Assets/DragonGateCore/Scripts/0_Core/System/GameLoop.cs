@@ -151,7 +151,7 @@ namespace DragonGate
             float deltaTime = Time.deltaTime;
             float unscaledDeltaTime = Time.unscaledDeltaTime;
             _update.TickUpdate(deltaTime, unscaledDeltaTime);
-            TimerManager.UpdateTimers(deltaTime);
+            TimerManager.UpdateTimers(deltaTime, unscaledDeltaTime);
 
             if ((_frameCount++ % _sweepInterval) == 0)
             {

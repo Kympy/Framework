@@ -9,6 +9,6 @@ namespace DragonGate
         [SerializeField] private Sprite ActionIcon;
 
         public abstract UniTask Execute(Pawn pawn, TParameter parameter);
-        public abstract void Cancel(Pawn pawn);
+        public abstract void Cancel(Pawn pawn, TParameter parameter);
     }
 }

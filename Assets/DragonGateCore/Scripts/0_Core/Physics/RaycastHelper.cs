@@ -22,5 +22,23 @@ namespace DragonGate
 
             return Physics.Raycast(ray, out hitInfo, maxDistance, layerMask);
         }
+        
+        public static bool TryGetCameraCenterWorldPosition(
+            Camera camera,
+            out Vector3 worldPosition,
+            float maxDistance = Mathf.Infinity,
+            int layerMask = Physics.DefaultRaycastLayers)
+        {
+            Ray ray = camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+
+            if (Physics.Raycast(ray, out RaycastHit hitInfo, maxDistance, layerMask))
+            {
+                worldPosition = hitInfo.point;
+                return true;
+            }
+
+            worldPosition = ray.origin + ray.direction * maxDistance;
+            return false;
+        }
     }
 }

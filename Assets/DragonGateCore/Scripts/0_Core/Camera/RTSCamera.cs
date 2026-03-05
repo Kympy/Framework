@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 namespace DragonGate
 {
     [RequireComponent(typeof(Camera))]
-    public class RTSCamera : CameraBase
+    public class RTSCamera : CameraBase<RTSCamera>
     {
         [Header("RTS Camera")]
         [SerializeField] private float _yaw;
@@ -16,11 +16,26 @@ namespace DragonGate
         [Space, Header("Input")]
         [SerializeField] private InputAction _moveAction;
         [SerializeField] private InputAction _rotateAction;
+        [SerializeField] private InputAction _dragRotateDeltaAction;   // e.g. <Mouse>/delta
+        [SerializeField] private InputAction _dragRotateButtonAction;  // e.g. <Mouse>/rightButton
 
         private Vector3 _pivotPosition = Vector3.zero;
 
-        private void OnEnable() { _moveAction.Enable(); _rotateAction.Enable(); }
-        private void OnDisable() { _moveAction.Disable(); _rotateAction.Disable(); }
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            _moveAction.Enable(); _rotateAction.Enable();
+            _dragRotateDeltaAction?.Enable();
+            _dragRotateButtonAction?.Enable();
+        }
+
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            _moveAction.Disable(); _rotateAction.Disable();
+            _dragRotateDeltaAction?.Disable();
+            _dragRotateButtonAction?.Disable();
+        }
 
         protected override void UpdateCamera(float deltaTime)
         {
@@ -47,7 +62,8 @@ namespace DragonGate
 
             if (_allowRotation)
             {
-                _yaw -= GetRotateInput() * deltaTime * _rotateSpeed;
+                float rotateInput = GetRotateInput();
+                _yaw -= rotateInput * deltaTime * _rotateSpeed;
             }
 
             var rotation = Quaternion.Euler(_pitch, _yaw, 0f);
@@ -59,8 +75,11 @@ namespace DragonGate
                 transform.rotation = rotation;
                 return;
             }
-            transform.position = Vector3.Lerp(transform.position, desiredPosition, deltaTime * _lerpSpeed);
-            transform.rotation = Quaternion.Lerp(transform.rotation, rotation, deltaTime * _lerpSpeed);
+
+            // rotation만 Slerp → position은 보간된 rotation 기준으로 계산
+            // position을 독립적으로 Lerp하면 직선으로 이동해 피벗 중심 공전이 깨짐
+            transform.rotation = Quaternion.Slerp(transform.rotation, rotation, deltaTime * _lerpSpeed);
+            transform.position = _pivotPosition + transform.rotation * new Vector3(0, 0, -_distance);
         }
 
         // 사용에 따라 상속받아 Input 방식 재정의
@@ -71,9 +90,35 @@ namespace DragonGate
         }
 
         // ex ) Q: -1, E: +1
-        protected virtual float GetRotateInput()
+        protected float GetRotateInput()
         {
-            return _rotateAction.ReadValue<float>();
+            float rotateValue = 0f;
+
+            // 기존 키 입력 (Q/E 등)
+            rotateValue += _rotateAction.ReadValue<float>();
+
+            // 클릭 드래그 회전
+            if (_dragRotateButtonAction != null && _dragRotateButtonAction.IsPressed())
+            {
+                if (_dragRotateDeltaAction != null)
+                {
+                    Vector2 delta = _dragRotateDeltaAction.ReadValue<Vector2>();
+                    rotateValue += -delta.x; // 좌우 드래그 → Yaw 회전
+                }
+            }
+
+            return rotateValue;
+        }
+
+        public void Shake(float duration, Vector3 strength, bool ignoreTimescale = false)
+        {
+            _lockPosition = true;
+            _lockZoom = true;
+            _camera.Shake(duration, strength, ignoreTimescale).onComplete = () =>
+            {
+                _lockPosition = false;
+                _lockZoom = false;
+            };
         }
     }
 }

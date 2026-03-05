@@ -33,7 +33,7 @@ namespace DragonGate
             }
         }
 
-        public void SetHidden(UnityAction onHidden = null)
+        public virtual void SetHidden(UnityAction onHidden = null)
         {
             if (gameObject.activeSelf == false)
             {

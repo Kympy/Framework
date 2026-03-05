@@ -55,13 +55,13 @@ namespace DragonGate
                 return;
             }
             _timer += Time.deltaTime;
-            if (_timer >= _frameInterval)
-            {
-                _currentFrame = (_currentFrame + 1) % _sprites.Length;
-                SetSprite(_currentFrame);
-                InvokeEvent(_currentFrame);
-                _timer -= _frameInterval;
-            }
+            
+            if (_timer < _frameInterval) return;
+            
+            _currentFrame = (_currentFrame + 1) % _sprites.Length;
+            SetSprite(_currentFrame);
+            InvokeEvent(_currentFrame);
+            _timer -= _frameInterval;
         }
 
         private void OnEnable()

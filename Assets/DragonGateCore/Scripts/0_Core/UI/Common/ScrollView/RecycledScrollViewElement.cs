@@ -7,11 +7,14 @@ namespace DragonGate
     {
         public bool Initialized { get; private set; }
         public int Index => _currentIndex;
+        public int LastIndex => _lastIndex;
+        public bool IsLastIndex => _currentIndex == _lastIndex;
         public RectTransform Rect => _rectTransform ?? transform as RectTransform;
 
         private RectTransform _rectTransform;
 
         private int _currentIndex;
+        private int _lastIndex;
 
 #if UNITY_EDITOR
         private TextMeshProUGUI _debugText;
@@ -35,6 +38,11 @@ namespace DragonGate
 #if UNITY_EDITOR
             DebugIndex(index);
 #endif
+        }
+
+        public void SetLastIndex(int lastIndex)
+        {
+            _lastIndex = lastIndex;
         }
         
 #if UNITY_EDITOR

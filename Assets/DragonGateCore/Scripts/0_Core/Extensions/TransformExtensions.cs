@@ -58,6 +58,30 @@ namespace DragonGate
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetLocalScaleX(this Transform t, float x)
+        {
+            Vector3 scale = t.localScale;
+            scale.x = x;
+            t.localScale = scale;
+        }
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetLocalScaleY(this Transform t, float y)
+        {
+            Vector3 scale = t.localScale;
+            scale.y = y;
+            t.localScale = scale;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetLocalScaleZ(this Transform t, float z)
+        {
+            Vector3 scale = t.localScale;
+            scale.z = z;
+            t.localScale = scale;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void Identity(this Transform t)
         {
             t.position = Vector3.zero;

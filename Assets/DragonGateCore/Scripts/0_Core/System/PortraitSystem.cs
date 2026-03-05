@@ -50,8 +50,10 @@ public class PortraitSystem : PlacedMonoBehaviourSingleton<PortraitSystem>
         int id = target.GetInstanceID();
         if (_cache.TryGetValue(id, out var cached) && cached != null && cached.IsCreated())
             return cached;
-
+        bool previousActive = target.activeSelf;
+        target.SetActive(true);
         var rt = Capture(target, width, height);
+        target.SetActive(previousActive);
         _cache[id] = rt;
         return rt;
     }
@@ -69,8 +71,21 @@ public class PortraitSystem : PlacedMonoBehaviourSingleton<PortraitSystem>
         }
     }
 
-    private RenderTexture Capture(GameObject target, int width, int height)
+    public void Invalidate(RenderTexture rt)
     {
+        foreach (var pair in _cache)
+        {
+            if (pair.Value == rt)
+            {
+                pair.Value.Release();
+                _cache.Remove(pair.Key);
+                return;
+            }
+        }
+    }
+
+    private RenderTexture Capture(GameObject target, int width, int height)
+    { 
         var renderers = target.GetComponentsInChildren<Renderer>(true);
         var savedLayers = new int[renderers.Length];
         for (int i = 0; i < renderers.Length; i++)

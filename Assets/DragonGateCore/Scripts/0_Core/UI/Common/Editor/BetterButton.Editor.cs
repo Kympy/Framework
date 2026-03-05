@@ -6,6 +6,7 @@ namespace DragonGate
     public class BetterButtonEditor : UnityEditor.UI.ButtonEditor
     {
         private SerializedProperty _buttonText;
+        private SerializedProperty _dimmedObject;
         private SerializedProperty _clickSound;
         private SerializedProperty _enterSound;
 
@@ -13,6 +14,7 @@ namespace DragonGate
         {
             base.OnEnable();
             _buttonText = serializedObject.FindProperty("_buttonText");
+            _dimmedObject = serializedObject.FindProperty(nameof(_dimmedObject));
             _clickSound = serializedObject.FindProperty("ClickSound");
             _enterSound = serializedObject.FindProperty("EnterSound");
         }
@@ -25,6 +27,7 @@ namespace DragonGate
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("BetterButton Options", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(_buttonText);
+            EditorGUILayout.PropertyField(_dimmedObject);
             EditorGUILayout.PropertyField(_clickSound);
             EditorGUILayout.PropertyField(_enterSound);
 

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace DragonGate
 {
@@ -27,17 +28,23 @@ namespace DragonGate
             camera.gameObject.SetActive(false);
         }
         
-        public static bool TryGetScreenToWorldPosition(Vector2 screenPosition, out Vector3 worldPosition, float maxDistance = 1000f, int layerMask = ~0)
+        public static bool TryGetScreenToWorldPosition(Vector2 screenPosition, out Vector3 worldPosition, float maxDistance = 1000f, int layerMask = Physics.DefaultRaycastLayers)
         {
             var ray = CurrentCamera.ScreenPointToRay(screenPosition);
-
             if (Physics.Raycast(ray, out var hitInfo, maxDistance, layerMask))
             {
                 worldPosition = hitInfo.point;
+                DGDebug.DrawRay(ray.origin, ray.direction * hitInfo.distance, Color.red);
                 return true;
             }
+            DGDebug.DrawRay(ray.origin, ray.direction * maxDistance, Color.red);
             worldPosition = default;
             return false;
+        }
+
+        public static bool TryGetMouseToWorldPosition(out Vector3 worldPosition, float maxDistance = 1000f, int layerMask = Physics.DefaultRaycastLayers)
+        {
+            return TryGetScreenToWorldPosition(Mouse.current.position.ReadValue(), out worldPosition, maxDistance, layerMask);
         }
 
         public static Vector2 WorldToScreenPoint(Vector3 worldPosition)

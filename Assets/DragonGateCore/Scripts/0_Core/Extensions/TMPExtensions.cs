@@ -1,5 +1,6 @@
 using System;
 using TMPro;
+using UnityEngine;
 
 namespace DragonGate
 {
@@ -43,6 +44,26 @@ namespace DragonGate
         public static void SetCurrency(this TMP_Text textComponent, int amount)
         {
             textComponent.SetText("{0:#,###}", amount);
+        }
+
+        public static void SetCurrency(this TMP_Text textComponent, long amount)
+        {
+            textComponent.SetText("{0:#,###}", amount);
+        }
+
+        public static void SetTime(this TMP_Text textComponent, int hours, int minutes)
+        {
+            textComponent.SetText("{0:00}:{1:00}", hours, minutes);
+        }
+
+        public static void SetSprite(this TMP_Text textComponent, int index)
+        {
+            textComponent.SetText("<sprite={0}>", index);
+        }
+
+        public static void SetSprite(this TMP_Text textComponent, string spriteName)
+        {
+            textComponent.SetText($"<sprite name={spriteName}>");
         }
     }
 }

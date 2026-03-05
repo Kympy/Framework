@@ -9,6 +9,7 @@ namespace DragonGate
 {
     public class BetterButton : Button, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
+        private static readonly int InteractableHash = Animator.StringToHash("Interactable");
         public bool IsPending { get; private set; } = false; // 쿨타임과 별개의 펜딩.
         public TextMeshProUGUI ButtonText => _buttonText;
         public Vector2 LastDownPosition { get; protected set; }
@@ -46,6 +47,7 @@ namespace DragonGate
 
         [Header("Optional Effects")]
         [SerializeField] protected TextMeshProUGUI _buttonText;
+        [SerializeField] protected GameObject _dimmedObject;
         public AudioClip ClickSound;
         public AudioClip EnterSound;
 
@@ -219,8 +221,8 @@ namespace DragonGate
         private void SetInteractable(bool value)
         {
             interactable = value;
-            if (Animator != null)
-                Animator.SetBool("Interactable", value);
+            Animator.GetReference()?.SetBool(InteractableHash, value);
+            _dimmedObject.GetReference()?.SetActive(!value);
         }
 
         public void OnBeginDrag(PointerEventData eventData)

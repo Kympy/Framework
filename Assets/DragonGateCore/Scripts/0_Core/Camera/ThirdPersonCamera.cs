@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 namespace DragonGate
 {
     [RequireComponent(typeof(Camera))]
-    public partial class ThirdPersonCamera : CameraBase
+    public partial class ThirdPersonCamera : CameraBase<ThirdPersonCamera>
     {
         [Header("Third Person Camera")]
         [SerializeField] private float _pitchMin = -30f;

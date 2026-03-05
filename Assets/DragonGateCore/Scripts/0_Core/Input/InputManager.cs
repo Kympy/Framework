@@ -52,7 +52,7 @@ namespace DragonGate
             {
                 var handle = _handlers[i];
                 if (!handle.Enabled) continue;  // Enabled 체크 추가!
-
+                
                 var result = handle.Handler.UpdateInput(deltaTime);
                 if (result == EInputResult.Break)
                 {

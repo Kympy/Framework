@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace DragonGate
 {
-    public class UniTaskHelper
+    public partial class UniTaskHelper
     {
         // 게임 전역 토큰
         private static CancellationTokenSource globalTokenSource = new CancellationTokenSource();

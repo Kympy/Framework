@@ -735,6 +735,7 @@ public class PrefabIconGenerator : EditorWindow
             importer.alphaSource = TextureImporterAlphaSource.FromInput;
             importer.alphaIsTransparency = true;
             importer.mipmapEnabled = false;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.SaveAndReimport();
         }
     }

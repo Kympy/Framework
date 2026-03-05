@@ -248,6 +248,7 @@ namespace DragonGate
                 var element = PopElement();
                 element.SetActive(true);
                 element.SetIndex(index);
+                element.SetLastIndex(elementCount);
                 if (element.Initialized == false)
                     element.InitializeOnce(_onElementInitAction);
 #if UNITY_EDITOR

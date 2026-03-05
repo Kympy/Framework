@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace DragonGate
 {
     public interface ISaveData
     {
         string SaveTargetName { get; }
+        /// <summary>새 게임 시작 시 초기 데이터를 생성합니다. 필요 없는 구현체는 오버라이드하지 않아도 됩니다.</summary>
+        void CreateDefaultData() { }
         void Save(string saveKey, ES3Settings settings);
         void Load(string saveKey, ES3Settings settings);
     }
@@ -38,7 +41,8 @@ namespace DragonGate
         public TSlot CurrentSlot { get; private set; }
         public abstract int MaxSlotCount { get; }
 
-        private readonly HashSet<ISaveData> _saveTargets = new HashSet<ISaveData>();
+        private readonly List<ISaveData> _saveTargets = new List<ISaveData>();
+        protected IReadOnlyList<ISaveData> SaveTargets => _saveTargets;
         private SaveRegistry _cachedRegistry; // 매번 파일을 읽지 않도록 메모리에 캐시
 
         private const string SlotMetaKey = "SlotMeta";
@@ -133,8 +137,19 @@ namespace DragonGate
 
         // ─── ISaveData 등록 ───────────────────────────────────────────────
 
-        public void AddSaveTarget(ISaveData target) => _saveTargets.Add(target);
+        public void AddSaveTarget(ISaveData target)
+        {
+            if (!_saveTargets.Contains(target))
+                _saveTargets.Add(target);
+        }
         public void RemoveSaveTarget(ISaveData target) => _saveTargets.Remove(target);
+
+        /// <summary>등록된 모든 SaveTarget의 CreateDefaultData를 호출합니다. 새 게임 시작 시 사용.</summary>
+        public void CreateAllDefaults()
+        {
+            foreach (var target in _saveTargets)
+                target.CreateDefaultData();
+        }
 
         // ─── 저장 / 불러오기 ──────────────────────────────────────────────
 
@@ -144,6 +159,7 @@ namespace DragonGate
         /// </summary>
         public void SaveAsNewSlot()
         {
+            DGDebug.Log("Save As New Slot...", Color.darkBlue);
             var registry = LoadRegistry();
             int newIndex = registry.NextSlotIndex++;
 
@@ -173,6 +189,7 @@ namespace DragonGate
         /// <summary>현재 슬롯에 덮어쓰기 저장 (자동저장 등). CurrentSlot이 없으면 새 슬롯 생성.</summary>
         public void SaveAll()
         {
+            DGDebug.Log("Save All.", Color.darkBlue);
             if (CurrentSlot == null) { SaveAsNewSlot(); return; }
 
             var updated = BuildSlotData();
@@ -192,17 +209,21 @@ namespace DragonGate
 
             foreach (var target in _saveTargets)
                 target.Save(target.SaveTargetName, settings);
+            DGDebug.Log("Save All Done!", Color.darkBlue);
         }
 
         /// <summary>CurrentSlot 데이터로 불러오기. 인게임 씬 진입 시 호출.</summary>
         public void LoadAll()
         {
-            // 새 플레이라 로드할게 없음.
-            if (CurrentSlot == null) return;
-            
+            if (CurrentSlot == null)
+            {
+                DGDebug.LogError("Current Slot is Null.");
+                return;
+            }
             var settings = GetSlotSettings(CurrentSlot.Index);
             foreach (var target in _saveTargets)
                 target.Load(target.SaveTargetName, settings);
+            DGDebug.Log("Load All Done!", Color.darkBlue);
         }
     }
 }

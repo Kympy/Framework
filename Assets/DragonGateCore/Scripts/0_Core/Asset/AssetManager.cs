@@ -207,7 +207,6 @@ namespace DragonGate
                         msg += $", Component's GameObject InstanceID: {c.gameObject.GetInstanceID()}";
                     }
                 }
-                DGDebug.LogError(msg);
                 return;
             }
             

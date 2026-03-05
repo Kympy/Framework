@@ -5,6 +5,8 @@ namespace DragonGate
 {
     public class NavMeshHelper
     {
+        private static NavMeshPath _path = new();
+        
         public static bool HasArrived(NavMeshAgent agent)
         {
             if (agent.pathPending)
@@ -36,6 +38,31 @@ namespace DragonGate
             }
             DGDebug.Log("Unable to find closest target position.", Color.antiqueWhite);
             return null;
+        }
+        
+        public static bool TryGetReachablePosition(Vector3 desiredWorldPosition, out Vector3 correctedPosition, float searchRadius = 1f, int areaMask = NavMesh.AllAreas)
+        {
+            bool found = NavMesh.SamplePosition(
+                desiredWorldPosition,
+                out var navMeshHit,
+                searchRadius,
+                areaMask);
+
+            if (found)
+            {
+                correctedPosition = navMeshHit.position;
+                return true;
+            }
+
+            correctedPosition = desiredWorldPosition;
+            return false;
+        }
+        
+        public static bool IsReachable(Vector3 startPosition, Vector3 targetPosition)
+        {
+            ThreadHelper.EnsureMainThread();
+            bool pathExists = NavMesh.CalculatePath(startPosition, targetPosition, NavMesh.AllAreas, _path);
+            return pathExists && _path.status == NavMeshPathStatus.PathComplete;
         }
     }
 }

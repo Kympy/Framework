@@ -1,7 +1,7 @@
 namespace DragonGate
 {
-    public interface IViewState<TState> where TState : struct
+    public interface IViewState<TViewData>
     {
-        public void SetViewState(in TState state);
+        public void SetViewState(in TViewData viewData);
     }
 }

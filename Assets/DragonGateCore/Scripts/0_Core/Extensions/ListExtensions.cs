@@ -61,5 +61,10 @@ namespace DragonGate
             int index = Random.Range(0, list.Count);
             return list[index];
         }
+
+        public static bool IsValid<T>(this List<T> list)
+        {
+            return list is { Count: > 0 };
+        }
     }
 }

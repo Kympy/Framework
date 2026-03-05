@@ -27,7 +27,7 @@ namespace DragonGate
                 _rootObject.transform.SetParent(parentTransform);
             }
 
-            public T Get()
+            public T Get(bool attachComponent = false)
             {
                 T component;
 
@@ -42,8 +42,15 @@ namespace DragonGate
 
                     if (component == null)
                     {
-                        UnityEngine.Debug.LogError($"Component {typeof(T).Name} not found on prefab {_resourceKey}");
-                        return null;
+                        if (attachComponent)
+                        {
+                            component = gameObject.AddComponent<T>();
+                        }
+                        else
+                        {
+                            DGDebug.LogError($"Component {typeof(T).Name} not found on prefab {_resourceKey}");
+                            return null;
+                        }
                     }
                 }
                 

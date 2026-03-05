@@ -6,5 +6,6 @@ namespace DragonGate
         public const int PopupDefault = 20;
         public const int ToolTip = 20;
         public const int SystemPopup = 30;
+        public const int Effect = 40;
     }
 }

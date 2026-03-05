@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DragonGate
 {
@@ -11,6 +12,7 @@ namespace DragonGate
     {
         private PanelController _panelController = new();
         private PopupController _popupController = new();
+        public UIEffectController Effect { get; } = new();
 
         protected override void OnCreate()
         {
@@ -105,6 +107,25 @@ namespace DragonGate
         public void SetUIVisible(bool visible)
         {
             _panelController.SetVisible(visible);
+        }
+
+        public static Canvas CreateCanvas(int sortingOrder, RenderMode renderMode = RenderMode.ScreenSpaceOverlay, string name = null)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                name = "Canvas";
+            }
+            var canvas = new GameObject(name).AddComponent<Canvas>();
+            canvas.renderMode = renderMode;
+            canvas.sortingOrder = sortingOrder;
+
+            canvas.AddComponent<GraphicRaycaster>();
+            var scaler = canvas.AddComponent<CanvasScaler>();
+            scaler.matchWidthOrHeight = 0;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+                
+            Object.DontDestroyOnLoad(canvas.gameObject);
+            return canvas;
         }
 
         #endregion

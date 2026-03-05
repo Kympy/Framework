@@ -89,16 +89,7 @@ namespace DragonGate
         {
             if (_panelCanvas == null)
             {
-                _panelCanvas = new GameObject("Panel Canvas").AddComponent<Canvas>();
-                _panelCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                _panelCanvas.sortingOrder = UISortOrder.Panel;
-
-                _panelCanvas.AddComponent<GraphicRaycaster>();
-                var scaler = _panelCanvas.AddComponent<CanvasScaler>();
-                scaler.matchWidthOrHeight = 0;
-                scaler.referenceResolution = new Vector2(1920, 1080);
-                
-                Object.DontDestroyOnLoad(_panelCanvas.gameObject);
+                _panelCanvas = UIManager.CreateCanvas(UISortOrder.Panel, name: "Panel Canvas");
             }
             return _panelCanvas;
         }

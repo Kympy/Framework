@@ -31,7 +31,7 @@ namespace DragonGate
             ClearAll();
         }
 
-        public T GetComponent<T>(string resourceKey) where T : Component
+        public T GetComponent<T>(string resourceKey, bool attachComponent = false) where T : Component
         {
             long poolKey = HashCode.Combine(resourceKey.ToHash(), typeof(T).GetHashCode());
 
@@ -43,7 +43,7 @@ namespace DragonGate
             }
 
             var typedPool = (ComponentPool<T>)pool;
-            var component = typedPool.Get();
+            var component = typedPool.Get(attachComponent);
 
             int instanceId = component.gameObject.GetInstanceID();
             _instanceToPoolKey[instanceId] = poolKey;
@@ -53,6 +53,16 @@ namespace DragonGate
         public GameObject GetGameObject(string resourceKey)
         {
             return GetComponent<Transform>(resourceKey).gameObject;
+        }
+
+        public Fx GetFx(string resourceKey)
+        {
+            return GetComponent<Fx>(resourceKey, attachComponent: true);
+        }
+
+        public T GetFx<T>(string resourceKey) where T : Fx
+        {
+            return GetComponent<T>(resourceKey, attachComponent: true);
         }
 
         public void ReturnGameObject(GameObject gameObject)
@@ -80,6 +90,12 @@ namespace DragonGate
                 return;
             }
             pool.TryReturn(component);
+        }
+
+        public void ReturnFx(Fx fx)
+        {
+            if (fx == null) return;
+            ReturnComponent(fx);
         }
 
         public T GetClass<T>() where T : class, new()

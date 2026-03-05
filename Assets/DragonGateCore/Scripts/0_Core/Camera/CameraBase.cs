@@ -99,8 +99,6 @@ namespace DragonGate
         public virtual void UpdateZoom(float deltaTime)
         {
             if (_lockZoom) return;
-            if (Application.isFocused == false || InputManager.IsPointerOutsideGameWindow()) return;
-            if (InputManager.IsPointerOverUI()) return;
             
             if (_isZoomMoving)
             {
@@ -111,9 +109,11 @@ namespace DragonGate
                     _distance = _zoomTargetDistance;
                     _isZoomMoving = false;
                 }
-
                 return;
             }
+            
+            if (Application.isFocused == false || InputManager.IsPointerOutsideGameWindow()) return;
+            if (InputManager.IsPointerOverUI()) return;
             
             var zoomValue = _zoomAction.ReadValue<float>();
             _distance -= zoomValue * deltaTime * _zoomInputSensitivity;

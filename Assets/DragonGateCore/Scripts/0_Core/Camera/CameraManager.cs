@@ -47,6 +47,11 @@ namespace DragonGate
             return TryGetScreenToWorldPosition(Mouse.current.position.ReadValue(), out worldPosition, maxDistance, layerMask);
         }
 
+        public static bool TryGetScreenCenterToWorldPosition(out Vector3 worldPosition, float distance = 1000f, int layerMask = Physics.DefaultRaycastLayers)
+        {
+            return RaycastHelper.TryGetCameraCenterWorldPosition(CurrentCamera, out worldPosition, distance, layerMask) != false;
+        }
+
         public static Vector2 WorldToScreenPoint(Vector3 worldPosition)
         {
             var screenPosition = CurrentCamera.WorldToScreenPoint(worldPosition);

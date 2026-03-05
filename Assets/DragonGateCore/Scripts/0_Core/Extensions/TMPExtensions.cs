@@ -51,6 +51,26 @@ namespace DragonGate
             textComponent.SetText("{0:#,###}", amount);
         }
 
+        public static void SetPlus(this TMP_Text textComponent, int amount)
+        {
+            textComponent.SetText("+{0:#,###}", amount);
+        }
+
+        public static void SetPlus(this TMP_Text textComponent, long amount)
+        {
+            textComponent.SetText("+{0:#,###}", amount);
+        }
+
+        public static void SetMinus(this TMP_Text textComponent, int amount)
+        {
+            textComponent.SetText("-{0:#,###}", amount);
+        }
+
+        public static void SetMinus(this TMP_Text textComponent, long amount)
+        {
+            textComponent.SetText("-{0:#,###}", amount);
+        }
+
         public static void SetTime(this TMP_Text textComponent, int hours, int minutes)
         {
             textComponent.SetText("{0:00}:{1:00}", hours, minutes);

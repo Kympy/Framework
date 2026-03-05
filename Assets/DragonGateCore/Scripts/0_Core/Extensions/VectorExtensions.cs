@@ -71,5 +71,36 @@ namespace DragonGate
             var randomValue = Random.insideUnitCircle * radius;
             return self + new Vector3(randomValue.x, 0, randomValue.y);
         }
+
+        public static float MinComponent(this Vector3 self)
+        {
+            float min = self.x;
+            if (self.y < min)
+            {
+                min = self.y;
+            }
+
+            if (self.z < min)
+            {
+                min = self.z;
+            }
+            return min;
+        }
+
+        public static float MaxComponent(this Vector3 self)
+        {
+            float max = self.x;
+            if (self.y > max)
+            {
+                max = self.y;
+            }
+
+            if (self.z > max)
+            {
+                max = self.z;
+            }
+
+            return max;
+        }
     }
 }

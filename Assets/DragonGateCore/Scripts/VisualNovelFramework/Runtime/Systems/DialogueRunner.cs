@@ -45,6 +45,7 @@ namespace DragonGate
 
         private void Start()
         {
+            CameraManager.EnableCamera(Camera.main);
             StartDialogue(_startingDialogue);
         }
 
@@ -239,6 +240,12 @@ namespace DragonGate
         {
             _playerCharacter.sprite = null;
             _npcCharacter.sprite = null;
+        }
+
+        public void SetBackground(string key)
+        {
+            _background.SetSprite(key);
+            CameraManager.CurrentCamera.FitCameraToSpriteRenderer(_background);
         }
     }
 }

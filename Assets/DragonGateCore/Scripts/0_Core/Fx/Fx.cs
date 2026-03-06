@@ -7,7 +7,9 @@ namespace DragonGate
         // 모든 배열을 들고 있을 필요 없이, 메인 시스템 하나만 참조
         [SerializeField] protected ParticleSystem _mainParticleSystem;
         [SerializeField] protected bool _autoReturn = true;
-
+        
+        public bool IsAlive() => _mainParticleSystem != null && _mainParticleSystem.IsAlive();
+        
         protected virtual void Awake()
         {
             // 최상위에 컴포넌트가 있다면 그것을, 없다면 첫 번째 자식을 가져옵니다.

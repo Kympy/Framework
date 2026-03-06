@@ -17,7 +17,7 @@ namespace DragonGate
         
         private CanvasGroup _canvasGroup;
         private Coroutine _animationCoroutine;
-        private const float _fadeSpeed = 5f;
+        private float _fadeDuration = 0.3f;
 
         protected void Animate(EAnimationType animationType, UnityAction onComplete = null)
         {
@@ -75,20 +75,23 @@ namespace DragonGate
         private IEnumerator Fade(float targetAlpha)
         {
             var canvasGroup = CanvasGroup;
-            bool decrease = targetAlpha <= canvasGroup.alpha; 
-            while (canvasGroup.alpha.IsSame(targetAlpha) == false)
+
+            float startAlpha = canvasGroup.alpha;
+
+            float elapsedTime = 0f;
+
+            while (elapsedTime < _fadeDuration)
             {
                 yield return null;
-                if (decrease)
-                {
-                    canvasGroup.alpha -= Time.unscaledDeltaTime * _fadeSpeed;
-                }
-                else
-                {
-                    canvasGroup.alpha += Time.unscaledDeltaTime * _fadeSpeed;
-                }
-                canvasGroup.alpha = canvasGroup.alpha.Clamp01();
+
+                elapsedTime += Time.unscaledDeltaTime;
+
+                float progress = elapsedTime / _fadeDuration;
+
+                canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, progress);
             }
+
+            canvasGroup.alpha = targetAlpha;
         }
 
         private IEnumerator ScaleUp()
@@ -120,6 +123,11 @@ namespace DragonGate
         private void SetActiveFalse()
         {
             gameObject.SetActive(false);
-        } 
+        }
+
+        public void SetFadeDuration(float duration)
+        {
+            _fadeDuration = duration;
+        }
     }
 }

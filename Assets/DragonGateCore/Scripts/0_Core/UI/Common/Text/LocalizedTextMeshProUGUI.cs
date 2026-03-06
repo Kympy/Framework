@@ -85,6 +85,33 @@ namespace DragonGate
                 _localizedString.RefreshString();
         }
 
+        public void SetCopy(LocalizedString copy)
+        {
+            _localizedString.TableReference = copy.TableReference;
+            _localizedString.TableEntryReference = copy.TableEntryReference;
+
+            // Arguments 복사
+            if (copy.Arguments != null)
+            {
+                var argCount = copy.Arguments.Count;
+                _localizedString.Arguments = new object[argCount];
+                for (int index = 0; index < argCount; index++)
+                {
+                    _localizedString.Arguments[index] = copy.Arguments[index];
+                }
+            }
+
+            // SmartFormat Variables 복사
+            foreach (var key in copy.Keys)
+            {
+                if (copy.TryGetValue(key, out var variable))
+                {
+                    _localizedString.Add(key, variable);
+                }
+            }
+            _localizedString.RefreshString();
+        }
+
         // ── SetArguments ───────────────────────────────────────────────────────
 
         public void SetArguments(params object[] args)

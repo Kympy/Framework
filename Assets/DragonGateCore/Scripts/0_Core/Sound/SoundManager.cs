@@ -118,7 +118,7 @@ namespace DragonGate
             _activeAudioSource.Add(source);
         }
 
-        public async UniTaskVoid PlayBGM(string key, bool crossFade = false)
+        public async UniTaskVoid PlayBGM(string key, float volume = 1f, bool crossFade = false, float fadeDuration = 0.2f)
         {
             CancelToken();
             if (_lastBgmKey == key) return;
@@ -135,15 +135,16 @@ namespace DragonGate
             if (crossFade == false)
             {
                 _bgmAudioSource.clip = clip;
+                _bgmAudioSource.volume = volume;
                 _bgmAudioSource.Play();
                 _lastBgmKey = key;
                 return;
             }
-            await CrossFadeBgm(clip, 0.2f);
+            await CrossFadeBgm(clip, volume, fadeDuration);
             _lastBgmKey = key;
         }
 
-        private async UniTask CrossFadeBgm(AudioClip clip, float fadeTime = 0.2f)
+        private async UniTask CrossFadeBgm(AudioClip clip, float volume = 1f, float fadeTime = 0.2f)
         {
             var newSource = GetAudioSource();
             newSource.loop = true;
@@ -158,13 +159,29 @@ namespace DragonGate
                 elapsedTime += Time.unscaledDeltaTime;
                 float t = elapsedTime / fadeTime;
                 _bgmAudioSource.volume = Mathf.Lerp(startActiveVolume, 0, t);
-                newSource.volume = Mathf.Lerp(0, 1, t);
+                newSource.volume = Mathf.Lerp(0, volume, t);
                 await UniTaskHelper.Yield(this);
             }
-            _bgmAudioSource.Stop();
-            newSource.volume = 1;
-            Object.Destroy(_bgmAudioSource.gameObject);
+            ReturnAudioSource(_bgmAudioSource);
+            newSource.volume = volume;
             _bgmAudioSource = newSource;
+        }
+
+        public async UniTask StopBGM(float fadeDuration = 0.2f)
+        {
+            if (_bgmAudioSource == null) return;
+            float elapsedTime = 0;
+            float startActiveVolume = _bgmAudioSource.volume;
+            while (elapsedTime < fadeDuration)
+            {
+                elapsedTime += Time.unscaledDeltaTime;
+                float t = elapsedTime / fadeDuration;
+                _bgmAudioSource.volume = Mathf.Lerp(startActiveVolume, 0, t);
+                await UniTaskHelper.Yield(this);
+            }
+            _bgmAudioSource.volume = 0;
+            ReturnAudioSource(_bgmAudioSource);
+            _bgmAudioSource = null;
         }
 
         public void PlayLoop(AudioClip clip, float volume = 1)

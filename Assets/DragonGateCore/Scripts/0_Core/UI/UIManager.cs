@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -126,6 +127,51 @@ namespace DragonGate
                 
             Object.DontDestroyOnLoad(canvas.gameObject);
             return canvas;
+        }
+
+        private UIFade _uiFade;
+        private const string UIFadeKey = "UIFade";
+
+        public async UniTask FromBlackToTransparent(float duration)
+        {
+            if (_uiFade == null)  CreateFade();
+            await _uiFade.FromBlackToTransparent(duration);
+        }
+
+        public async UniTask FromTransparentToBlack(float duration)
+        {
+            if (_uiFade == null) CreateFade();
+            await _uiFade.FromTransparentToBlack(duration);
+        }
+        
+        public async UniTask FadeInOut(ICancelable cancelable, FadeData fadeData, float interval = 0f)
+        {
+            await FadeIn(fadeData);
+            if (interval > 0f)
+                await UniTaskHelper.WaitForSeconds(cancelable, interval);
+            await FadeOut(fadeData);
+        }
+
+        public async UniTask FadeIn(FadeData fadeData)
+        {
+            if (_uiFade == null) CreateFade();
+            _uiFade.SetStartColor(fadeData.InStartColor);
+            _uiFade.SetEndColor(fadeData.InEndColor);
+            await _uiFade.Play(fadeData.InDuration);
+        }
+
+        public async UniTask FadeOut(FadeData fadeData)
+        {
+            if (_uiFade == null) CreateFade();
+            _uiFade.SetStartColor(fadeData.OutStartColor);
+            _uiFade.SetEndColor(fadeData.OutEndColor);
+            await _uiFade.Play(fadeData.OutDuration);
+        }
+
+        private void CreateFade()
+        {
+            if (_uiFade != null) return;
+            _uiFade = AssetManager.Instance.GetAsset<UIFade>(UIFadeKey);
         }
 
         #endregion

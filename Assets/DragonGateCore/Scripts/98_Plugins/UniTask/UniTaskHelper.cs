@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Unity.VisualScripting;
 #if DOTWEEN
 using DG.Tweening;
 #endif
@@ -95,6 +96,11 @@ namespace DragonGate
         {
             var tokenSource = obj.GetTokenSource();
             await UniTask.WaitForSeconds(delay, cancellationToken: tokenSource.Token);
+        }
+
+        public static async UniTask WaitForSecondsScene(float delay)
+        {
+            await UniTask.WaitForSeconds(delay, cancellationToken: _sceneTokenSource.Token);
         }
 
         public static async UniTask WaitUntil(ICancelable obj, Func<bool> predicate, PlayerLoopTiming timing = PlayerLoopTiming.Update, CancellationToken cancellationToken = default(CancellationToken), bool cancelImmediately = false)

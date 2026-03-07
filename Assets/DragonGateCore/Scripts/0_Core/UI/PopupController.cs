@@ -27,6 +27,23 @@ namespace DragonGate
 
         public PopupCore Show(string key) => Show(key, 0);
         public T Show<T>(string key) where T : PopupCore => Show(key) as T;
+        public PopupCore Show(PopupCore instance) => Show(instance, 0);
+        public T Show<T>(PopupCore instance) where T : PopupCore => Show(instance) as T;
+
+        public PopupCore Show<ViewState>(PopupCore instance, ViewState viewState) where ViewState : struct
+        {
+            // 이미 활성 중이면 상태만 업데이트
+            if (_activePopups.Contains(instance))
+            {
+                if (instance is IViewState<ViewState> sv) sv.SetViewState(in viewState);
+                return instance;
+            }
+
+            // 풀에 있으면 제거 후 재사용
+            RemoveFromPool(instance);
+            instance.gameObject.SetActive(true);
+            return ShowPopupInternal(instance, viewState);
+        }
 
         public PopupCore Show<ViewState>(string key, ViewState viewState) where ViewState : struct
         {
@@ -254,6 +271,17 @@ namespace DragonGate
                 popupCore.SetActive(false);
             }
             return popupCore;
+        }
+
+        private void RemoveFromPool(PopupCore instance)
+        {
+            var type = instance.GetType();
+            if (!_pool.TryGetValue(type, out var pool)) return;
+
+            var temp = new List<GameObject>(pool);
+            pool.Clear();
+            foreach (var go in temp)
+                if (go != instance.gameObject) pool.Push(go);
         }
 
         private void ReturnToPool(PopupCore popup)

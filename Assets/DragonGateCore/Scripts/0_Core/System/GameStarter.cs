@@ -1,9 +1,10 @@
-using System;
 using Cysharp.Threading.Tasks;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.Localization;
+using UnityEngine.Localization.Settings;
 using Object = UnityEngine.Object;
 
 namespace DragonGate
@@ -19,7 +20,7 @@ namespace DragonGate
         
         public static bool IsApplicationQuitting = false;
 
-        private void Start()
+        protected virtual void Start()
         {
             Object.DontDestroyOnLoad(gameObject);
             StartGame().Forget();
@@ -30,7 +31,7 @@ namespace DragonGate
             IsApplicationQuitting = true;
         }
 
-        private async UniTask StartGame()
+        public async UniTask StartGame()
         {
             CreateEssentialGlobalSingleton();
             CreateGlobalSingleton();
@@ -41,7 +42,15 @@ namespace DragonGate
             SetApplicationSetting();
             CreateEventSystem();
             
-            LoadTargetScene(_targetScene);
+            OnInitialized();
+            
+            if (_targetScene != null)
+                LoadTargetScene(_targetScene);
+        }
+
+        protected virtual void OnInitialized()
+        {
+            
         }
 
         private void CreateEssentialGlobalSingleton()
@@ -51,6 +60,7 @@ namespace DragonGate
             InputManager.CreateInstance();
             AssetManager.CreateInstance();
             SceneManager.CreateInstance();
+            PoolManager.CreateInstance();
             UIManager.CreateInstance();
             SoundManager.CreateInstance();
         }
@@ -64,6 +74,15 @@ namespace DragonGate
 
         protected virtual UniTask PreLoad()
         {
+            DGDebug.Log($"System Language : {Application.systemLanguage}");
+            if (LocalizationSettings.SelectedLocale == null)
+            {
+                var locale = LocalizationSettings.AvailableLocales.GetLocale(new LocaleIdentifier(Application.systemLanguage));
+                if (locale != null)
+                {
+                    LocalizationSettings.SelectedLocale = locale;
+                }
+            }
             return UniTask.CompletedTask;
         }
 

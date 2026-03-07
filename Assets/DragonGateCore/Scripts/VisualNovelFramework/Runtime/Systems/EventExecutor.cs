@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace DragonGate
 {
@@ -11,9 +10,6 @@ namespace DragonGate
     /// </summary>
     public class EventExecutor
     {
-        [Header("Scene Binding")]
-        public CharacterLayer[] characterLayers;
-
         private DialogueRunner _runner;
 
         // 생성하면서 runner 인스턴스 넘겨줘야함. 어차피 둘은 한 몸이기도하고, runner를 받아서 unitask를 돌려야하기 때문.
@@ -51,24 +47,36 @@ namespace DragonGate
                     break;
 
                 // ── 캐릭터 스프라이트 ─────────────────────
-                case DialogueEventType.ShowCharacterSprite:
-                    SetCharacter(dialogueEvent.CharacterPosition, dialogueEvent.CharacterSprite, true);
+                case DialogueEventType.ShowCharacter:
+                    if (dialogueEvent.CharacterAsset == null)
+                    {
+                        DGDebug.LogError("Event Show Character - Character Asset is not assigned.");
+                        break;
+                    }
+                    _runner.ShowCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.CharacterScale);
                     break;
 
-                case DialogueEventType.HideCharacterSprite:
-                    SetCharacter(dialogueEvent.CharacterPosition, null, false);
+                case DialogueEventType.HideCharacter:
+                    if (dialogueEvent.CharacterAsset == null)
+                    {
+                        DGDebug.LogError("Event Hide Character - Character Asset is not assigned.");
+                        break;
+                    }
+                    _runner.HideCharacter(dialogueEvent.CharacterAsset.Id);
+                    break;
+                    
+                case DialogueEventType.HideAllCharacter:
+                    _runner.HideAllCharacter();
                     break;
 
                 // ── 애니메이션 ────────────────────────────
                 case DialogueEventType.PlayAnimation:
-                    // characterId를 이름으로 씬에서 Animator 검색
-                    if (!string.IsNullOrEmpty(dialogueEvent.CharacterId) &&
-                        !string.IsNullOrEmpty(dialogueEvent.AnimationTrigger))
+                    if (dialogueEvent.CharacterAsset == null)
                     {
-                        var go  = GameObject.Find(dialogueEvent.CharacterId);
-                        var ani = go?.GetComponent<Animator>();
-                        ani?.SetTrigger(dialogueEvent.AnimationTrigger);
+                        DGDebug.LogError("Event Play Animation - Character Asset is not assigned.");
+                        break;
                     }
+                    _runner.PlayCharacterAnimation(dialogueEvent.CharacterAsset.Id, dialogueEvent.AnimationTrigger);
                     break;
 
                 // ── 이펙트 ───────────────────────────────
@@ -128,24 +136,5 @@ namespace DragonGate
                     break;
             }
         }
-
-        private void SetCharacter(CharacterPosition pos, Sprite sprite, bool show)
-        {
-            foreach (var layer in characterLayers)
-            {
-                if (layer.position != pos) continue;
-                if (layer.image == null) continue;
-                layer.image.sprite = sprite;
-                layer.image.gameObject.SetActive(show);
-                return;
-            }
-        }
-    }
-
-    [System.Serializable]
-    public class CharacterLayer
-    {
-        public CharacterPosition position;
-        public Image             image;
     }
 }

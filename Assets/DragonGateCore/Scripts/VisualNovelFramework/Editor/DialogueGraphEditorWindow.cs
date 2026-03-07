@@ -5,19 +5,27 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
+using UnityEngine.SceneManagement;
+using DragonGate;
+using Unity.VisualScripting;
 
 namespace DragonGate.Editor
 {
+    [InitializeOnLoad]
     public class DialogueGraphEditorWindow : EditorWindow
     {
         // ── 레이아웃 상수 ─────────────────────────────────────────────
         private const float NODE_W = 210f;
         private const float HEADER_H = 28f;
-        private const float PREVIEW_H = 22f;
-        private const float CHOICE_ROW_H = 20f;
+        private const float PREVIEW_HEIGHT = 22f;
+        private const float CHOICE_ROW_HEIGHT = 20f;
         private const float PORT_R = 7f;
         private const float INSPECTOR_W = 310f;
         private const float TOOLBAR_H = 24f;
@@ -34,25 +42,28 @@ namespace DragonGate.Editor
             new Dictionary<DialogueNodeType, Color>
             {
                 { DialogueNodeType.Start, new Color(0.15f, 0.48f, 0.22f) },
-                { DialogueNodeType.NPC, new Color(0.20f, 0.30f, 0.48f) },
-                { DialogueNodeType.Player, new Color(0.28f, 0.42f, 0.30f) },
+                { DialogueNodeType.Character, new Color(0.28f, 0.42f, 0.30f) },
                 { DialogueNodeType.Narration, new Color(0.38f, 0.28f, 0.48f) },
                 { DialogueNodeType.ChapterEnd, new Color(0.50f, 0.18f, 0.18f) },
+                { DialogueNodeType.Condition, new Color(0.45f, 0.35f, 0.12f) },
             };
 
         private static readonly Dictionary<DialogueNodeType, string> NODE_ICONS =
             new Dictionary<DialogueNodeType, string>
             {
                 { DialogueNodeType.Start, "▶ START" },
-                { DialogueNodeType.NPC, "💬 NPC" },
-                { DialogueNodeType.Player, "🗣 PLAYER" },
+                { DialogueNodeType.Character, "🗣 CHARACTER" },
                 { DialogueNodeType.Narration, "📖 NARRATION" },
                 { DialogueNodeType.ChapterEnd, "■ CHAPTER END" },
+                { DialogueNodeType.Condition, "? CONDITION" },
             };
 
         // ── 상태 ──────────────────────────────────────────────────────
         private DialogueGraph graph;
-        private DialogueNode selectedNode;
+        private string _selectedNodeId;
+        private int _selectedLocaleIdx;
+        private string[] _localeNames;
+        private DialogueNode SelectedNode => graph?.nodes.Find(n => n.nodeId == _selectedNodeId);
         private SerializedObject _graphSO;
 
         // 캔버스 뷰
@@ -74,6 +85,57 @@ namespace DragonGate.Editor
         private bool foldEnterEvents = true;
         private bool foldExitEvents = false;
 
+        // 설정 패널
+        private bool _showSettings;
+        private SerializedObject _previewSettingsSO;
+        private const string PREVIEW_SETTINGS_RESOURCE_PATH = "Assets/DragonGateCore/VisualNovelFramework/Resources/DialoguePreviewSettings.asset";
+
+        // ── 캐시된 GUIContent (static: 재생성 불필요) ────────────────
+        private static readonly GUIContent s_conditionTypeLabel = new GUIContent("조건 타입");
+        private static readonly GUIContent s_checkTypeLabel = new GUIContent("연산 타입");
+        private static readonly GUIContent s_paramTypeLabel = new GUIContent("값 타입");
+        private static readonly GUIContent s_valueLabel = new GUIContent("값");
+        private static readonly GUIContent s_speakerNameLabel = new GUIContent("화자 이름 (내레이션)");
+        private static readonly GUIContent s_characterAssetLabel = new GUIContent("캐릭터 에셋");
+        private static readonly GUIContent s_dialogueTextLabel = new GUIContent("대화 텍스트");
+        private static readonly GUIContent s_nextChapterLabel = new GUIContent("다음 챕터");
+        private static readonly GUIContent s_choiceTextLabel = new GUIContent("텍스트");
+        private static readonly GUIContent s_isEnabledLabel = new GUIContent("활성화");
+        private static readonly GUIContent s_bgSpriteLabel = new GUIContent("배경 스프라이트");
+        private static readonly GUIContent s_positionLabel = new GUIContent("위치");
+        private static readonly GUIContent s_characterLabel = new GUIContent("캐릭터");
+        private static readonly GUIContent s_characterIdLabel = new GUIContent("캐릭터 ID");
+        private static readonly GUIContent s_characterScaleLabel = new GUIContent("크기 배율");
+        private static readonly GUIContent s_emotionSpriteLabel = new GUIContent("감정 스프라이트");
+        private static readonly GUIContent s_objNameLabel = new GUIContent("오브젝트 이름");
+        private static readonly GUIContent s_animTriggerLabel = new GUIContent("애니메이션 트리거");
+        private static readonly GUIContent s_effectPrefabLabel = new GUIContent("이펙트 Prefab");
+        private static readonly GUIContent s_uiObjLabel = new GUIContent("UI 오브젝트 이름");
+        private static readonly GUIContent s_bgmLabel = new GUIContent("BGM");
+        private static readonly GUIContent s_bgmVolumeLabel = new GUIContent("BGM Volume");
+        private static readonly GUIContent s_bgmFadeLabel = new GUIContent("BGM Fade Duration");
+        private static readonly GUIContent s_sfxLabel = new GUIContent("SFX");
+        private static readonly GUIContent s_sfxVolumeLabel = new GUIContent("SFX Volume");
+        private static readonly GUIContent s_durationLabel = new GUIContent("시간(초)");
+        private static readonly GUIContent s_waitForCompLabel = new GUIContent("완료 대기");
+
+        // ── 캐시된 GUIStyle ───────────────────────────────────────────
+        private bool _stylesReady;
+        private GUIStyle _nodeHeaderStyle;
+        private GUIStyle _nodePreviewStyle;
+        private GUIStyle _nodePreviewRichStyle;
+        private GUIStyle _nodeChoiceStyle;
+        private GUIStyle _nodeTrueStyle;
+        private GUIStyle _nodeFalseStyle;
+        private GUIStyle _nodeNextStyle;
+        private GUIStyle _inspectorTitle14;
+        private GUIStyle _inspectorTitle12;
+        private GUIStyle _inspectorTitle13;
+        private GUIStyle _centeredLabelStyle;
+        
+        // 작업 씬
+        private const string WORK_SCENE_PATH = "Assets/Scenes/DialoguePreview.unity";
+
         // ── 메뉴 진입점 ───────────────────────────────────────────────
 
         [MenuItem("DragonGate/Open Visual Novel Dialogue Graph Editor")]
@@ -84,27 +146,100 @@ namespace DragonGate.Editor
             return w;
         }
 
-        public static void OpenGraph(DialogueGraph g)
+        public static void OpenGraph(DialogueGraph graph)
         {
             var w = OpenWindow();
-            w.LoadGraph(g);
+            w.LoadGraph(graph);
+        }
+
+        private static void OpenDialoguePreviewScene(DialogueGraph graph)
+        {
+            if (File.Exists(WORK_SCENE_PATH))
+            {
+                if (EditorSceneManager.GetActiveScene().path != WORK_SCENE_PATH)
+                    EditorSceneManager.OpenScene(WORK_SCENE_PATH);
+                    
+                EnsureStarter();
+            }
+            else
+            {
+                Scene newScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+                EnsureStarter();
+                
+                string sceneDir = Path.GetDirectoryName(WORK_SCENE_PATH);
+                if (!Directory.Exists(sceneDir))
+                    Directory.CreateDirectory(sceneDir);
+                EditorSceneManager.SaveScene(newScene, WORK_SCENE_PATH);
+            }
+
+            void EnsureStarter()
+            {
+                if (FindAnyObjectByType<DialoguePreviewStarter>() == null)
+                    new GameObject("Starter").AddComponent<DialoguePreviewStarter>();
+            }
+            
+            EditorApplication.isPlaying = true;
+        }
+
+        private static void StartRunner(DialogueGraph graph, DialogueNode node)
+        {
+            if (DialogueRunner.HasInstance == false) return;
+            DialogueRunner.Instance.StartDialogue(graph, node.nodeId);
+        }
+
+        private void EnsureStyles()
+        {
+            if (_stylesReady) return;
+
+            _nodeHeaderStyle = new GUIStyle(EditorStyles.boldLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 11,
+                normal = { textColor = Color.white },
+            };
+
+            _nodePreviewStyle = new GUIStyle(EditorStyles.label)
+            {
+                fontSize = 10,
+                wordWrap = false,
+                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) },
+            };
+
+            _nodePreviewRichStyle = new GUIStyle(_nodePreviewStyle) { richText = true };
+            _nodeChoiceStyle = new GUIStyle(_nodePreviewStyle) { normal = { textColor = new Color(1f, 0.88f, 0.4f) } };
+            _nodeTrueStyle = new GUIStyle(_nodePreviewStyle) { normal = { textColor = new Color(0.4f, 0.95f, 0.45f) } };
+            _nodeFalseStyle = new GUIStyle(_nodePreviewStyle) { normal = { textColor = new Color(0.95f, 0.45f, 0.45f) } };
+            _nodeNextStyle = new GUIStyle(_nodePreviewStyle) { normal = { textColor = new Color(0.55f, 0.95f, 0.55f) } };
+
+            _inspectorTitle14 = new GUIStyle(EditorStyles.boldLabel) { fontSize = 14 };
+            _inspectorTitle12 = new GUIStyle(EditorStyles.boldLabel) { fontSize = 12 };
+            _inspectorTitle13 = new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 };
+
+            _centeredLabelStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 16,
+                alignment = TextAnchor.MiddleCenter,
+                normal = { textColor = new Color(0.6f, 0.6f, 0.6f) },
+                richText = true,
+            };
+
+            _stylesReady = true;
         }
 
         private void OnEnable()
         {
+            connectFromNode = null; // 유령 커넥션 방지
+            _stylesReady = false;
+
             if (graph != null)
                 _graphSO = new SerializedObject(graph);
-                
-            // 로컬라이제이션 시스템 초기화 먼저 완료
-            var initOp = LocalizationSettings.InitializationOperation;
-            if (!initOp.IsDone)
-                initOp.WaitForCompletion();
 
-            if (LocalizationSettings.SelectedLocale == null)
-            {
-                var firstLocale = LocalizationSettings.AvailableLocales.Locales[0];
-                LocalizationSettings.SelectedLocale = firstLocale;
-            }
+            // 로컬라이제이션 시스템 초기화 먼저 완료
+            // var initOp = LocalizationSettings.InitializationOperation;
+            // if (!initOp.IsDone)
+            //     initOp.WaitForCompletion();
+            RefreshLocales();
         }
 
         // ── 그래프 로드 ───────────────────────────────────────────────
@@ -112,9 +247,34 @@ namespace DragonGate.Editor
         private void LoadGraph(DialogueGraph g)
         {
             graph = g;
-            selectedNode = null;
+            _selectedNodeId = null;
             _graphSO = g != null ? new SerializedObject(g) : null;
             Repaint();
+        }
+        
+        // 언어
+        private void RefreshLocales()
+        {
+            var locales = LocalizationSettings.AvailableLocales?.Locales;
+            if (locales == null || locales.Count == 0)
+            {
+                _localeNames = new[] { "No Locales" };
+                _selectedLocaleIdx = -1;
+                return;
+            }
+
+            _localeNames = locales.Select(l => l.LocaleName).ToArray();
+
+            // 현재 선택된 Locale에 맞게 인덱스 동기화
+            var current = LocalizationSettings.SelectedLocale;
+            if (current != null)
+            {
+                _selectedLocaleIdx = locales.IndexOf(current);
+            }
+            else
+            {
+                _selectedLocaleIdx = -1;
+            }
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -123,10 +283,13 @@ namespace DragonGate.Editor
 
         private void OnGUI()
         {
+            EnsureStyles();
+
             // graphSO가 무효화된 경우 재생성
             if (graph != null && (_graphSO == null || _graphSO.targetObject == null))
                 _graphSO = new SerializedObject(graph);
-                
+
+
             var canvasRect = new Rect(0, TOOLBAR_H, position.width - INSPECTOR_W, position.height - TOOLBAR_H);
             var inspectorRect = new Rect(position.width - INSPECTOR_W, TOOLBAR_H, INSPECTOR_W, position.height - TOOLBAR_H);
 
@@ -158,9 +321,9 @@ namespace DragonGate.Editor
                 GUILayout.Label($"  {graph.name}", EditorStyles.toolbarButton);
                 GUILayout.FlexibleSpace();
 
-                if (GUILayout.Button("+ NPC", EditorStyles.toolbarButton, GUILayout.Width(60))) AddNode(DialogueNodeType.NPC);
-                if (GUILayout.Button("+ Player", EditorStyles.toolbarButton, GUILayout.Width(65))) AddNode(DialogueNodeType.Player);
+                if (GUILayout.Button("+ Character", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Character);
                 if (GUILayout.Button("+ Narration", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Narration);
+                if (GUILayout.Button("+ Condition", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Condition);
                 if (GUILayout.Button("+ Start", EditorStyles.toolbarButton, GUILayout.Width(60))) AddNode(DialogueNodeType.Start);
                 if (GUILayout.Button("+ End", EditorStyles.toolbarButton, GUILayout.Width(55))) AddNode(DialogueNodeType.ChapterEnd);
                 GUILayout.Space(8);
@@ -176,6 +339,38 @@ namespace DragonGate.Editor
                 GUILayout.FlexibleSpace();
                 GUILayout.Label("그래프를 로드하거나 새로 만드세요", EditorStyles.toolbarButton);
             }
+
+            GUILayout.FlexibleSpace();
+            var playButton = EditorApplication.isPlaying == false ? "▶️ Play" : "⏹️ Stop";
+            if (GUILayout.Button(playButton, EditorStyles.toolbarButton, GUILayout.Width(80)))
+            {
+                if (EditorApplication.isPlaying)
+                {
+                    EditorApplication.isPlaying = false;
+                }
+                else
+                {
+                    OpenDialoguePreviewScene(graph);
+                }
+            }
+            
+            EditorGUI.BeginChangeCheck();
+            GUILayout.Label("🌐", EditorStyles.toolbarButton, GUILayout.Width(22));
+            _selectedLocaleIdx = EditorGUILayout.Popup(_selectedLocaleIdx, _localeNames, EditorStyles.toolbarPopup, GUILayout.Width(90));
+            if (EditorGUI.EndChangeCheck() && _selectedLocaleIdx != -1)
+            {
+                var locales = LocalizationSettings.AvailableLocales.Locales;
+                if (_selectedLocaleIdx < locales.Count)
+                {
+                    LocalizationSettings.SelectedLocale = locales[_selectedLocaleIdx];
+                    // 노드 캔버스 미리보기 텍스트 갱신
+                    Repaint();
+                }
+            }
+                
+            var settingsLabel = _showSettings ? "- Settings" : "⚙ Settings";
+            if (GUILayout.Button(settingsLabel, EditorStyles.toolbarButton, GUILayout.Width(80)))
+                _showSettings = !_showSettings;
 
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
@@ -205,7 +400,22 @@ namespace DragonGate.Editor
             if (connectFromNode != null)
             {
                 var from = GetOutputPortPos(connectFromNode, connectFromChoiceIdx);
-                DrawBezier(from, Event.current.mousePosition - new Vector2(0, TOOLBAR_H), new Color(1f, 0.9f, 0.3f, 0.7f));
+                var rawEnd = Event.current.mousePosition - new Vector2(0, TOOLBAR_H);
+
+                // 가장 가까운 Input 포트에 스냅 → 시각적 끝점 정렬
+                var snapEnd = rawEnd;
+                foreach (var n in graph.nodes)
+                {
+                    if (n == connectFromNode) continue;
+                    var portPos = GetInputPortPos(n);
+                    if (Vector2.Distance(rawEnd, portPos) < PORT_R + 5f)
+                    {
+                        snapEnd = portPos;
+                        break;
+                    }
+                }
+
+                DrawBezier(from, snapEnd, new Color(1f, 0.9f, 0.3f, 0.7f));
                 Repaint();
             }
 
@@ -242,35 +452,33 @@ namespace DragonGate.Editor
             EditorGUI.DrawRect(new Rect(rect.x + 3, rect.y + 3, rect.width, rect.height),
                 new Color(0, 0, 0, 0.45f));
 
-            var baseColor = NODE_COLORS.TryGetValue(node.nodeType, out var nc) ? nc : Color.gray;
-            if (selectedNode == node)
+            var baseColor = NODE_COLORS.TryGetValue(node.NodeType, out var nc) ? nc : Color.gray;
+            if (_selectedNodeId == node.nodeId)
                 baseColor = Color.Lerp(baseColor, new Color(0.5f, 0.8f, 1f), 0.35f);
             EditorGUI.DrawRect(rect, baseColor);
 
-            DrawOutline(rect, selectedNode == node ? BORDER_SELECTED : BORDER_DEFAULT, 1.5f);
+            DrawOutline(rect, _selectedNodeId == node.nodeId ? BORDER_SELECTED : BORDER_DEFAULT, 1.5f);
 
             var headerRect = new Rect(rect.x, rect.y, rect.width, HEADER_H);
             EditorGUI.DrawRect(headerRect, new Color(0, 0, 0, 0.25f));
 
-            var hs = new GUIStyle(EditorStyles.boldLabel)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 11,
-                normal = { textColor = Color.white }
-            };
             GUI.Label(headerRect,
-                NODE_ICONS.TryGetValue(node.nodeType, out var icon) ? icon : node.nodeType.ToString(), hs);
+                NODE_ICONS.TryGetValue(node.NodeType, out var icon) ? icon : node.NodeType.ToString(),
+                _nodeHeaderStyle);
 
             float y = rect.y + HEADER_H;
-            var ps = new GUIStyle(EditorStyles.label)
-            {
-                fontSize = 10,
-                wordWrap = false,
-                normal = { textColor = new Color(0.9f, 0.9f, 0.9f) }
-            };
 
-            string speakerName = node.SpeakerName.IsEmpty ? "(화자 없음)" : node.SpeakerName.GetLocalizedString();
-            string preview = null;
+            string speakerName = null;
+            if (node.NodeType == DialogueNodeType.Narration)
+            {
+                speakerName = node.NarrationSpeakerName == null || node.NarrationSpeakerName.IsEmpty ? "(내레이션)" : node.NarrationSpeakerName.GetLocalizedString();
+            }
+            else if (node.NodeType == DialogueNodeType.Character)
+            {
+                speakerName = node.SpeakerCharacter == null || node.SpeakerCharacter.GetName() == null ? "(캐릭터)" : node.SpeakerCharacter.GetName();
+            }
+
+            string preview;
             if (node.DialogueText.IsEmpty)
             {
                 preview = "<텍스트 없음>";
@@ -281,49 +489,67 @@ namespace DragonGate.Editor
                 preview = localized.Length > 24 ? localized.Substring(0, 24) + "…" : localized;
             }
 
-            if (node.nodeType != DialogueNodeType.Start && node.nodeType != DialogueNodeType.ChapterEnd)
+            if (string.IsNullOrEmpty(speakerName) == false)
             {
-                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_H),
-                    $"<b>{speakerName}</b>  {preview}", new GUIStyle(ps) { richText = true });
-                y += PREVIEW_H;
+                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_HEIGHT),
+                    $"<b>{speakerName}</b>  {preview}", _nodePreviewRichStyle);
+                y += PREVIEW_HEIGHT;
             }
-            else if (node.nodeType == DialogueNodeType.ChapterEnd)
+            else if (node.NodeType == DialogueNodeType.ChapterEnd)
             {
-                string ch = string.IsNullOrEmpty(node.TargetChapterId) ? "(챕터 미지정)" : $"→ {node.TargetChapterId}";
-                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_H), ch, ps);
-                y += PREVIEW_H;
+                string nextChapter = node.NextChapter == null || node.NextChapter.RuntimeKeyIsValid() == false ? "(챕터 미지정)" : $"→ {AssetManager.GetAssetNameFromGUID(node.NextChapter.AssetGUID)}";
+                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_HEIGHT), nextChapter, _nodePreviewStyle);
+                y += PREVIEW_HEIGHT;
             }
 
             DrawPort(GetInputPortPos(node), portInputColor: true);
 
-            if (node.Choices != null)
+            if (node.NodeType == DialogueNodeType.Condition)
             {
-                for (int i = 0; i < node.Choices.Count; i++)
+                for (int i = 0; i < node.Conditions.Count; i++)
                 {
-                    var ch = node.Choices[i];
-                    var cs = new GUIStyle(ps) { normal = { textColor = new Color(1f, 0.88f, 0.4f) } };
-                    string ct = null;
-                    if (ch.ChoiceText == null || ch.ChoiceText.IsEmpty)
-                    {
-                        ct = $"Choice {i + 1}";
-                    }
-                    else
-                    {
-                        var localized = ch.ChoiceText.GetLocalizedString();
-                        ct = localized.Length > 20 ? localized.Substring(0, 20) + "…" : localized;
-                    }
-
-                    GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_H), $"▸ {ct}", cs);
-                    DrawPort(GetOutputPortPos(node, i), portInputColor: false);
-                    y += CHOICE_ROW_H;
+                    var condition = node.Conditions[i];
+                    GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, CHOICE_ROW_HEIGHT),
+                        $"{condition.ConditionType} : {condition.CheckType}", _nodePreviewStyle);
+                    y += CHOICE_ROW_HEIGHT;
                 }
-            }
 
-            if (node.nodeType != DialogueNodeType.ChapterEnd)
-            {
-                var ns = new GUIStyle(ps) { normal = { textColor = new Color(0.55f, 0.95f, 0.55f) } };
-                GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_H), "▸ Next", ns);
+                GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_HEIGHT), "▸ True", _nodeTrueStyle);
                 DrawPort(GetOutputPortPos(node, -1), portInputColor: false);
+                y += CHOICE_ROW_HEIGHT;
+
+                GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_HEIGHT), "▸ False", _nodeFalseStyle);
+                DrawPort(GetOutputPortPos(node, -2), portInputColor: false);
+            }
+            else
+            {
+                if (node.Choices != null)
+                {
+                    for (int i = 0; i < node.Choices.Count; i++)
+                    {
+                        var ch = node.Choices[i];
+                        string ct;
+                        if (ch.ChoiceText == null || ch.ChoiceText.IsEmpty)
+                        {
+                            ct = $"Choice {i + 1}";
+                        }
+                        else
+                        {
+                            var localized = ch.ChoiceText.GetLocalizedString();
+                            ct = localized.Length > 20 ? localized.Substring(0, 20) + "…" : localized;
+                        }
+
+                        GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_HEIGHT), $"▸ {ct}", _nodeChoiceStyle);
+                        DrawPort(GetOutputPortPos(node, i), portInputColor: false);
+                        y += CHOICE_ROW_HEIGHT;
+                    }
+                }
+
+                if (node.NodeType != DialogueNodeType.ChapterEnd)
+                {
+                    GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_HEIGHT), "▸ Next", _nodeNextStyle);
+                    DrawPort(GetOutputPortPos(node, -1), portInputColor: false);
+                }
             }
         }
 
@@ -348,6 +574,19 @@ namespace DragonGate.Editor
 
         private void DrawNodeConnections(DialogueNode from)
         {
+            if (from.NodeType == DialogueNodeType.Condition)
+            {
+                var trueNode = graph.GetNode(from.TrueNodeId);
+                if (trueNode != null)
+                    DrawBezier(GetOutputPortPos(from, -1), GetInputPortPos(trueNode),
+                        new Color(0.4f, 0.95f, 0.45f, 0.8f));
+                var falseNode = graph.GetNode(from.FalseNodeId);
+                if (falseNode != null)
+                    DrawBezier(GetOutputPortPos(from, -2), GetInputPortPos(falseNode),
+                        new Color(0.95f, 0.45f, 0.45f, 0.8f));
+                return;
+            }
+
             if (from.Choices != null)
             {
                 for (int i = 0; i < from.Choices.Count; i++)
@@ -382,12 +621,21 @@ namespace DragonGate.Editor
         private Rect GetNodeRect(DialogueNode n)
         {
             float h = HEADER_H;
-            if (n.nodeType != DialogueNodeType.Start)
-                h += PREVIEW_H;
-            if (n.Choices != null)
-                h += n.Choices.Count * CHOICE_ROW_H;
-            if (n.nodeType != DialogueNodeType.ChapterEnd)
-                h += CHOICE_ROW_H;
+            if (n.NodeType == DialogueNodeType.Condition)
+            {
+                // 각 Condition 행 + True 행 + False 행
+                h += (n.Conditions.Count + 2) * CHOICE_ROW_HEIGHT;
+            }
+            else
+            {
+                if (n.NodeType != DialogueNodeType.Start)
+                    h += PREVIEW_HEIGHT;
+                if (n.Choices != null)
+                    h += n.Choices.Count * CHOICE_ROW_HEIGHT;
+                if (n.NodeType != DialogueNodeType.ChapterEnd)
+                    h += CHOICE_ROW_HEIGHT;
+            }
+
             h += 10;
 
             return new Rect(n.editorPosition.x + scrollOffset.x,
@@ -404,13 +652,22 @@ namespace DragonGate.Editor
         private Vector2 GetOutputPortPos(DialogueNode n, int choiceIdx)
         {
             var r = GetNodeRect(n);
+
+            if (n.NodeType == DialogueNodeType.Condition)
+            {
+                // 조건 행 이후: True(-1)는 첫 번째, False(-2)는 두 번째
+                float baseY = r.y + HEADER_H + n.Conditions.Count * CHOICE_ROW_HEIGHT;
+                float rowOffset = (choiceIdx == -2) ? CHOICE_ROW_HEIGHT : 0f;
+                return new Vector2(r.xMax, baseY + rowOffset + CHOICE_ROW_HEIGHT * 0.5f);
+            }
+
             float y = r.y + HEADER_H;
-            if (n.nodeType != DialogueNodeType.Start) y += PREVIEW_H;
+            if (n.NodeType != DialogueNodeType.Start) y += PREVIEW_HEIGHT;
 
             if (choiceIdx >= 0 && n.Choices != null)
-                y += choiceIdx * CHOICE_ROW_H + CHOICE_ROW_H * 0.5f;
+                y += choiceIdx * CHOICE_ROW_HEIGHT + CHOICE_ROW_HEIGHT * 0.5f;
             else
-                y += (n.Choices?.Count ?? 0) * CHOICE_ROW_H + CHOICE_ROW_H * 0.5f;
+                y += (n.Choices?.Count ?? 0) * CHOICE_ROW_HEIGHT + CHOICE_ROW_HEIGHT * 0.5f;
 
             return new Vector2(r.xMax, y);
         }
@@ -427,20 +684,48 @@ namespace DragonGate.Editor
             GUILayout.BeginArea(new Rect(rect.x + 6, rect.y + 6, rect.width - 12, rect.height - 12));
             inspectorScroll = GUILayout.BeginScrollView(inspectorScroll);
 
-            if (graph == null)
+            if (_showSettings)
+                DrawPreviewSettingsPanel();
+            else if (graph == null)
                 DrawNoGraphInspector();
-            else if (selectedNode == null)
+            else if (string.IsNullOrEmpty(_selectedNodeId))
                 DrawGraphInspector();
             else
-                DrawNodeInspector(selectedNode);
+                DrawNodeInspector(SelectedNode);
 
             GUILayout.EndScrollView();
             GUILayout.EndArea();
         }
 
+        private void DrawPreviewSettingsPanel()
+        {
+            GUILayout.Label("Preview Settings", _inspectorTitle14);
+            GUILayout.Space(8);
+
+            var settings = GetOrCreatePreviewSettings();
+            if (_previewSettingsSO == null || _previewSettingsSO.targetObject != settings)
+                _previewSettingsSO = new SerializedObject(settings);
+
+            _previewSettingsSO.Update();
+            EditorGUILayout.PropertyField(_previewSettingsSO.FindProperty("DialogueRunnerPrefab"), new GUIContent("DialogueRunner 프리팹"));
+            _previewSettingsSO.ApplyModifiedProperties();
+        }
+
+        private static DialoguePreviewSettings GetOrCreatePreviewSettings()
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<DialoguePreviewSettings>(PREVIEW_SETTINGS_RESOURCE_PATH);
+            if (settings != null) return settings;
+
+            settings = CreateInstance<DialoguePreviewSettings>();
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PREVIEW_SETTINGS_RESOURCE_PATH)!);
+            AssetDatabase.CreateAsset(settings, PREVIEW_SETTINGS_RESOURCE_PATH);
+            AssetDatabase.SaveAssets();
+            return settings;
+        }
+
         private void DrawNoGraphInspector()
         {
-            GUILayout.Label("Visual Novel Graph", new GUIStyle(EditorStyles.boldLabel) { fontSize = 14 });
+            GUILayout.Label("Visual Novel Graph", _inspectorTitle14);
             GUILayout.Space(8);
             GUILayout.Label("그래프를 로드하거나 새로 생성하세요.", EditorStyles.wordWrappedLabel);
             GUILayout.Space(10);
@@ -453,7 +738,7 @@ namespace DragonGate.Editor
 
         private void DrawGraphInspector()
         {
-            GUILayout.Label("📊  Graph Settings", new GUIStyle(EditorStyles.boldLabel) { fontSize = 12 });
+            GUILayout.Label("📊  Graph Settings", _inspectorTitle12);
             GUILayout.Space(6);
 
             EditorGUI.BeginChangeCheck();
@@ -481,46 +766,145 @@ namespace DragonGate.Editor
         private void DrawNodeInspector(DialogueNode node)
         {
             // ── SerializedObject 준비 ─────────────────────────────────
-            if (_graphSO == null) return;
+            if (_graphSO == null || node == null) return;
             var so = _graphSO;
             int nodeIdx = graph.nodes.IndexOf(node);
+            if (nodeIdx < 0) return;
             string nodePath = $"nodes.Array.data[{nodeIdx}]";
             so.Update();
 
             EditorGUI.BeginChangeCheck();
 
-            var icon = NODE_ICONS.TryGetValue(node.nodeType, out var ic) ? ic : node.nodeType.ToString();
-            GUILayout.Label(icon, new GUIStyle(EditorStyles.boldLabel) { fontSize = 13 });
+            var icon = NODE_ICONS.TryGetValue(node.NodeType, out var ic) ? ic : node.NodeType.ToString();
+            GUILayout.Label(icon, _inspectorTitle13);
             EditorGUILayout.LabelField("Node ID", node.nodeId, EditorStyles.miniLabel);
             GUILayout.Space(6);
 
-            node.nodeType = (DialogueNodeType)EditorGUILayout.EnumPopup("타입", node.nodeType);
+            node.NodeType = (DialogueNodeType)EditorGUILayout.EnumPopup("타입", node.NodeType);
             GUILayout.Space(6);
 
-            if (node.nodeType != DialogueNodeType.Start &&
-                node.nodeType != DialogueNodeType.ChapterEnd)
+            if (node.NodeType == DialogueNodeType.Condition)
             {
-                GUILayout.Label("대화 내용", EditorStyles.boldLabel);
-                var speakerNameProp = so.FindProperty($"{nodePath}.SpeakerName");
-                EditorGUILayout.PropertyField(speakerNameProp, new GUIContent("화자 이름"));
-                GUILayout.Space(6);
-                var spriteProp = so.FindProperty($"{nodePath}.SpeakerPortrait");
-                EditorGUILayout.PropertyField(spriteProp, new GUIContent("화자 초상화"));
-                GUILayout.Space(6);
-                var dialogueTextProp = so.FindProperty($"{nodePath}.DialogueText");
-                EditorGUILayout.PropertyField(dialogueTextProp, new GUIContent("대화 텍스트"));
+                GUILayout.Label("조건 설정", EditorStyles.boldLabel);
+
+                var conditionListProp = so.FindProperty($"{nodePath}.Conditions");
+                for (int i = 0; i < conditionListProp.arraySize; i++)
+                {
+                    var conditionProp = conditionListProp.GetArrayElementAtIndex(i);
+                    EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("ConditionType"), s_conditionTypeLabel);
+                    GUILayout.Space(6);
+
+                    GUILayout.BeginVertical(EditorStyles.helpBox);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"조건 {i + 1}", EditorStyles.boldLabel);
+                    // 조건 제거 버튼
+                    if (GUILayout.Button("✕", GUILayout.Width(22)))
+                    {
+                        conditionListProp.DeleteArrayElementAtIndex(i);
+                        so.ApplyModifiedProperties();
+                        GUILayout.EndHorizontal();
+                        GUILayout.EndVertical();
+                        break;
+                    }
+
+                    GUILayout.EndHorizontal();
+
+                    EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("CheckType"), s_checkTypeLabel);
+
+                    var paramTypeProp = conditionProp.FindPropertyRelative("ParamType");
+                    EditorGUILayout.PropertyField(paramTypeProp, s_paramTypeLabel);
+                    switch (paramTypeProp.intValue)
+                    {
+                        case (int)ConditionParamType.Int:
+                            EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("IntValue"), s_valueLabel);
+                            break;
+                        case (int)ConditionParamType.Float:
+                            EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("FloatValue"), s_valueLabel);
+                            break;
+                        case (int)ConditionParamType.Bool:
+                            EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("BoolValue"), s_valueLabel);
+                            break;
+                        case (int)ConditionParamType.String:
+                            EditorGUILayout.PropertyField(conditionProp.FindPropertyRelative("StringValue"), s_valueLabel);
+                            break;
+                    }
+
+                    GUILayout.EndVertical();
+                    GUILayout.Space(2);
+                }
+
+                if (GUILayout.Button("+ 조건 추가"))
+                {
+                    conditionListProp.InsertArrayElementAtIndex(conditionListProp.arraySize);
+                    // 새 요소 초기화
+                    var newElem = conditionListProp.GetArrayElementAtIndex(conditionListProp.arraySize - 1);
+                    // newElem.FindPropertyRelative("IsEnabled").boolValue = true;
+                    // newElem.FindPropertyRelative("TargetNodeId").stringValue = string.Empty;
+                    so.ApplyModifiedProperties();
+                }
+
+                GUILayout.Label("True 분기", EditorStyles.boldLabel);
+                var trueProp = so.FindProperty($"{nodePath}.TrueNodeId");
+                GUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("True →",
+                    string.IsNullOrEmpty(trueProp.stringValue) ? "없음 (포트로 연결)" : trueProp.stringValue,
+                    EditorStyles.miniLabel);
+                if (!string.IsNullOrEmpty(trueProp.stringValue) && GUILayout.Button("해제", GUILayout.Width(38)))
+                {
+                    trueProp.stringValue = string.Empty;
+                    so.ApplyModifiedProperties();
+                }
+
+                GUILayout.EndHorizontal();
+
+                GUILayout.Label("False 분기", EditorStyles.boldLabel);
+                var falseProp = so.FindProperty($"{nodePath}.FalseNodeId");
+                GUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("False →",
+                    string.IsNullOrEmpty(falseProp.stringValue) ? "없음 (포트로 연결)" : falseProp.stringValue,
+                    EditorStyles.miniLabel);
+                if (!string.IsNullOrEmpty(falseProp.stringValue) && GUILayout.Button("해제", GUILayout.Width(38)))
+                {
+                    falseProp.stringValue = string.Empty;
+                    so.ApplyModifiedProperties();
+                }
+
+                GUILayout.EndHorizontal();
             }
 
-            if (node.nodeType == DialogueNodeType.ChapterEnd)
+            if (node.NodeType != DialogueNodeType.Start &&
+                node.NodeType != DialogueNodeType.ChapterEnd &&
+                node.NodeType != DialogueNodeType.Condition)
+            {
+                GUILayout.Label("대화 내용", EditorStyles.boldLabel);
+
+                // Narration: 화자 없이 대사만 나올 때를 위한 이름 (선택 사항)
+                if (node.NodeType == DialogueNodeType.Narration)
+                {
+                    EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.NarrationSpeakerName"), s_speakerNameLabel);
+                    GUILayout.Space(6);
+                }
+                else if (node.NodeType == DialogueNodeType.Character)
+                {
+                    EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.SpeakerCharacter"), s_characterAssetLabel);
+                    GUILayout.Space(6);
+                }
+
+                var dialogueTextProp = so.FindProperty($"{nodePath}.DialogueText");
+                EditorGUILayout.PropertyField(dialogueTextProp, s_dialogueTextLabel);
+            }
+
+            if (node.NodeType == DialogueNodeType.ChapterEnd)
             {
                 GUILayout.Label("챕터 전환", EditorStyles.boldLabel);
-                node.TargetChapterId = EditorGUILayout.TextField("이동할 챕터 ID", node.TargetChapterId);
+                EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.NextChapter"), s_nextChapterLabel);
             }
 
             GUILayout.Space(8);
 
-            if (node.nodeType != DialogueNodeType.Start &&
-                node.nodeType != DialogueNodeType.ChapterEnd)
+            if (node.NodeType != DialogueNodeType.Start &&
+                node.NodeType != DialogueNodeType.ChapterEnd &&
+                node.NodeType != DialogueNodeType.Condition)
             {
                 GUILayout.Label("선택지", EditorStyles.boldLabel);
 
@@ -546,17 +930,8 @@ namespace DragonGate.Editor
 
                     GUILayout.EndHorizontal();
 
-                    // ✅ LocalizedString - PropertyField로만 접근해야 isExpanded 유지됨
-                    EditorGUILayout.PropertyField(
-                        choiceDataProp.FindPropertyRelative("ChoiceText"),
-                        new GUIContent("텍스트")
-                    );
-
-                    // ✅ IsEnabled도 PropertyField로 통일
-                    EditorGUILayout.PropertyField(
-                        choiceDataProp.FindPropertyRelative("IsEnabled"),
-                        new GUIContent("활성화")
-                    );
+                    EditorGUILayout.PropertyField(choiceDataProp.FindPropertyRelative("ChoiceText"), s_choiceTextLabel);
+                    EditorGUILayout.PropertyField(choiceDataProp.FindPropertyRelative("IsEnabled"), s_isEnabledLabel);
 
                     // TargetNodeId는 커스텀 표시가 필요하므로 예외적으로 직접 접근
                     var targetIdProp = choiceDataProp.FindPropertyRelative("TargetNodeId");
@@ -648,7 +1023,7 @@ namespace DragonGate.Editor
             {
                 var evtProp = eventsProp.GetArrayElementAtIndex(i);
                 var typeProp = evtProp.FindPropertyRelative("eventType");
-                var eventType = (DialogueEventType)typeProp.enumValueIndex;
+                var eventType = (DialogueEventType)typeProp.intValue;
 
                 GUILayout.BeginVertical(EditorStyles.helpBox);
 
@@ -670,63 +1045,52 @@ namespace DragonGate.Editor
                 switch (eventType)
                 {
                     case DialogueEventType.SetBackground:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), new GUIContent("배경 스프라이트"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_bgSpriteLabel);
                         break;
 
-                    case DialogueEventType.ShowCharacterSprite:
-                    case DialogueEventType.HideCharacterSprite:
-                        EditorGUILayout.PropertyField(
-                            evtProp.FindPropertyRelative("CharacterId"),
-                            new GUIContent("캐릭터 ID"));
-                        EditorGUILayout.PropertyField(
-                            evtProp.FindPropertyRelative("CharacterPosition"),
-                            new GUIContent("위치"));
-                        if (eventType == DialogueEventType.ShowCharacterSprite)
-                            EditorGUILayout.PropertyField(
-                                evtProp.FindPropertyRelative("CharacterSprite"),
-                                new GUIContent("스프라이트"));
+                    case DialogueEventType.ShowCharacter:
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterViewportPosition"), s_positionLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterScale"), s_characterScaleLabel);
                         break;
 
-                    case DialogueEventType.SetCharacterEmotion:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterId"), new GUIContent("캐릭터 ID"));
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterSprite"), new GUIContent("감정 스프라이트"));
+                    case DialogueEventType.HideCharacter:
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_characterLabel);
                         break;
 
                     case DialogueEventType.PlayAnimation:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterId"), new GUIContent("오브젝트 이름"));
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("AnimationTrigger"), new GUIContent("애니메이션 트리거"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_characterLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("AnimationTrigger"), s_animTriggerLabel);
                         break;
 
-                    // ── AssetReference: PropertyField 필수 ───────────
                     case DialogueEventType.PlayEffect:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), new GUIContent("이펙트 Prefab"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_effectPrefabLabel);
                         break;
 
                     case DialogueEventType.ShowUI:
                     case DialogueEventType.HideUI:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("UiElementId"), new GUIContent("UI 오브젝트 이름"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("UiElementId"), s_uiObjLabel);
                         break;
 
                     case DialogueEventType.PlayBGM:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), new GUIContent("BGM"));
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Volume"), new GUIContent("BGM Volume"));
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), new GUIContent("BGM Fade Duration"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_bgmLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Volume"), s_bgmVolumeLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_bgmFadeLabel);
                         break;
+
                     case DialogueEventType.PlaySFX:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), new GUIContent("SFX"));
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Volume"), new GUIContent("SFX Volume"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_sfxLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Volume"), s_sfxVolumeLabel);
                         break;
 
                     case DialogueEventType.FadeIn:
                     case DialogueEventType.FadeOut:
                     case DialogueEventType.Wait:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), new GUIContent("시간(초)"));
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_durationLabel);
                         break;
                 }
 
-                EditorGUILayout.PropertyField(
-                    evtProp.FindPropertyRelative("WaitForCompletion"),
-                    new GUIContent("완료 대기"));
+                EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("WaitForCompletion"), s_waitForCompLabel);
 
                 GUILayout.EndVertical();
                 GUILayout.Space(2);
@@ -768,9 +1132,9 @@ namespace DragonGate.Editor
                     var delta = e.mousePosition - lastMousePos;
                     lastMousePos = e.mousePosition;
 
-                    if (isDraggingNode && selectedNode != null)
+                    if (isDraggingNode && !string.IsNullOrEmpty(_selectedNodeId))
                     {
-                        selectedNode.editorPosition += delta;
+                        SelectedNode.editorPosition += delta;
                         EditorUtility.SetDirty(graph);
                         e.Use();
                     }
@@ -786,7 +1150,7 @@ namespace DragonGate.Editor
 
                     break;
 
-                case EventType.KeyDown when e.keyCode == KeyCode.Delete && selectedNode != null:
+                case EventType.KeyDown when e.keyCode == KeyCode.Delete && !string.IsNullOrEmpty(_selectedNodeId):
                     DeleteSelectedNode();
                     e.Use();
                     break;
@@ -797,13 +1161,34 @@ namespace DragonGate.Editor
         {
             if (graph == null) return;
 
-            var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            var mousePosition = e.mousePosition - new Vector2(0, TOOLBAR_H);
 
             foreach (var n in graph.nodes)
             {
+                if (n.NodeType == DialogueNodeType.Condition)
+                {
+                    if (Vector2.Distance(mousePosition, GetOutputPortPos(n, -1)) < PORT_R + 2)
+                    {
+                        connectFromNode = n;
+                        connectFromChoiceIdx = -1;
+                        e.Use();
+                        return;
+                    }
+
+                    if (Vector2.Distance(mousePosition, GetOutputPortPos(n, -2)) < PORT_R + 2)
+                    {
+                        connectFromNode = n;
+                        connectFromChoiceIdx = -2;
+                        e.Use();
+                        return;
+                    }
+
+                    continue;
+                }
+
                 if (n.Choices != null)
                     for (int i = 0; i < n.Choices.Count; i++)
-                        if (Vector2.Distance(mp, GetOutputPortPos(n, i)) < PORT_R + 2)
+                        if (Vector2.Distance(mousePosition, GetOutputPortPos(n, i)) < PORT_R + 2)
                         {
                             connectFromNode = n;
                             connectFromChoiceIdx = i;
@@ -811,8 +1196,8 @@ namespace DragonGate.Editor
                             return;
                         }
 
-                if (n.nodeType != DialogueNodeType.ChapterEnd &&
-                    Vector2.Distance(mp, GetOutputPortPos(n, -1)) < PORT_R + 2)
+                if (n.NodeType != DialogueNodeType.ChapterEnd &&
+                    Vector2.Distance(mousePosition, GetOutputPortPos(n, -1)) < PORT_R + 2)
                 {
                     connectFromNode = n;
                     connectFromChoiceIdx = -1;
@@ -821,12 +1206,13 @@ namespace DragonGate.Editor
                 }
             }
 
-            for (int ni = graph.nodes.Count - 1; ni >= 0; ni--)
+            for (int nodeIndex = graph.nodes.Count - 1; nodeIndex >= 0; nodeIndex--)
             {
-                var n = graph.nodes[ni];
-                if (GetNodeRect(n).Contains(mp))
+                var node = graph.nodes[nodeIndex];
+                if (GetNodeRect(node).Contains(mousePosition))
                 {
-                    selectedNode = n;
+                    _selectedNodeId = node.nodeId;
+                    OnClickNode(node);
                     isDraggingNode = true;
                     GUI.changed = true;
                     e.Use();
@@ -834,7 +1220,7 @@ namespace DragonGate.Editor
                 }
             }
 
-            selectedNode = null;
+            _selectedNodeId = null;
             isDraggingCanvas = true;
             GUI.changed = true;
         }
@@ -854,6 +1240,10 @@ namespace DragonGate.Editor
                     {
                         if (connectFromChoiceIdx >= 0)
                             connectFromNode.Choices[connectFromChoiceIdx].TargetNodeId = n.nodeId;
+                        else if (connectFromChoiceIdx == -2)
+                            connectFromNode.FalseNodeId = n.nodeId;
+                        else if (connectFromNode.NodeType == DialogueNodeType.Condition)
+                            connectFromNode.TrueNodeId = n.nodeId;
                         else
                             connectFromNode.NextNodeId = n.nodeId;
 
@@ -912,7 +1302,7 @@ namespace DragonGate.Editor
                 if (EditorUtility.DisplayDialog("노드 삭제", $"'{node.NodeTitle}' 노드를 삭제할까요?", "삭제", "취소"))
                 {
                     graph.DeleteNode(node.nodeId);
-                    if (selectedNode == node) selectedNode = null;
+                    if (_selectedNodeId == node.nodeId) _selectedNodeId = null;
                 }
             });
             m.ShowAsContext();
@@ -923,9 +1313,9 @@ namespace DragonGate.Editor
             if (graph == null) return;
             var worldPos = mousePos - new Vector2(0, TOOLBAR_H) - scrollOffset;
             var m = new GenericMenu();
-            m.AddItem(new GUIContent("추가/💬 NPC 노드"), false, () => AddNodeAt(DialogueNodeType.NPC, worldPos));
-            m.AddItem(new GUIContent("추가/🗣 Player 노드"), false, () => AddNodeAt(DialogueNodeType.Player, worldPos));
+            m.AddItem(new GUIContent("추가/🗣 Character 노드"), false, () => AddNodeAt(DialogueNodeType.Character, worldPos));
             m.AddItem(new GUIContent("추가/📖 Narration 노드"), false, () => AddNodeAt(DialogueNodeType.Narration, worldPos));
+            m.AddItem(new GUIContent("추가/? Condition 노드"), false, () => AddNodeAt(DialogueNodeType.Condition, worldPos));
             m.AddItem(new GUIContent("추가/▶ Start 노드"), false, () => AddNodeAt(DialogueNodeType.Start, worldPos));
             m.AddItem(new GUIContent("추가/■ Chapter End 노드"), false, () => AddNodeAt(DialogueNodeType.ChapterEnd, worldPos));
             m.ShowAsContext();
@@ -935,22 +1325,30 @@ namespace DragonGate.Editor
         {
             if (graph == null) return;
             var pos = new Vector2(200 - scrollOffset.x, 150 - scrollOffset.y);
-            selectedNode = graph.CreateNode(type, pos);
+            _selectedNodeId = graph.CreateNode(type, pos)?.nodeId;
         }
 
         private void AddNodeAt(DialogueNodeType type, Vector2 worldPos)
         {
             if (graph == null) return;
-            selectedNode = graph.CreateNode(type, worldPos);
+            _selectedNodeId = graph.CreateNode(type, worldPos)?.nodeId;
+        }
+
+        private void OnClickNode(DialogueNode node)
+        {
+            _showSettings = false;
+            if (EditorApplication.isPlaying)
+                StartRunner(graph, node);
         }
 
         private void DeleteSelectedNode()
         {
-            if (selectedNode == null) return;
-            if (EditorUtility.DisplayDialog("노드 삭제", $"'{selectedNode.NodeTitle}'을 삭제할까요?", "삭제", "취소"))
+            var node = SelectedNode;
+            if (node == null) return;
+            if (EditorUtility.DisplayDialog("노드 삭제", $"'{node.NodeTitle}'을 삭제할까요?", "삭제", "취소"))
             {
-                graph.DeleteNode(selectedNode.nodeId);
-                selectedNode = null;
+                graph.DeleteNode(node.nodeId);
+                _selectedNodeId = null;
             }
         }
 
@@ -976,7 +1374,7 @@ namespace DragonGate.Editor
             var start = new DialogueNode
             {
                 nodeId = Guid.NewGuid().ToString(),
-                nodeType = DialogueNodeType.Start,
+                NodeType = DialogueNodeType.Start,
                 editorPosition = new Vector2(80, 200),
             };
             g.nodes.Add(start);
@@ -999,14 +1397,7 @@ namespace DragonGate.Editor
 
         private void DrawCenteredLabel(Rect rect, string text)
         {
-            var s = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 16,
-                alignment = TextAnchor.MiddleCenter,
-                normal = { textColor = new Color(0.6f, 0.6f, 0.6f) },
-                richText = true,
-            };
-            GUI.Label(new Rect(0, 0, rect.width, rect.height), text, s);
+            GUI.Label(new Rect(0, 0, rect.width, rect.height), text, _centeredLabelStyle);
         }
     }
 }

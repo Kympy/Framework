@@ -11,7 +11,7 @@ namespace DragonGate
     /// 대화 UI를 담당하는 컴포넌트.
     /// Canvas 하위에 배치하고 Inspector에서 각 UI 요소를 연결.
     /// </summary>
-    public class UIDialogue : PopupCore
+    public class UIDialogue : PanelCore
     {
         // ── Inspector 연결 ──────────────────────────────────────────────
 
@@ -65,12 +65,26 @@ namespace DragonGate
             HideChoices();
             _nextButton.gameObject.SetActive(false);
 
-            // 화자 이름
-            _speakerNameText.SetCopy(node.SpeakerName);
+            if (node.NodeType == DialogueNodeType.Narration)
+            {
+                // 내레이션은 화자 이름이 없을 수도 있음.
+                if (node.NarrationSpeakerName == null || node.NarrationSpeakerName.IsEmpty)
+                {
+                    _speakerNameText.Clear();
+                }
+                else
+                {
+                    _speakerNameText.SetCopy(node.NarrationSpeakerName);
+                }
+            }
+            else if (node.NodeType == DialogueNodeType.Character)
+            {
+                _speakerNameText.SetCopy(node.SpeakerCharacter.Name);
+            }
 
             // 노드 타입별 색상
             if (speakerNameBackground != null)
-                speakerNameBackground.color = GetNodeColor(node.nodeType);
+                speakerNameBackground.color = GetNodeColor(node.NodeType);
 
             // 타이프라이터 시작
             if (typewriterCo != null)
@@ -173,8 +187,7 @@ namespace DragonGate
 
         private Color GetNodeColor(DialogueNodeType t) => t switch
         {
-            DialogueNodeType.NPC       => colorNPC,
-            DialogueNodeType.Player    => colorPlayer,
+            DialogueNodeType.Character    => colorPlayer,
             DialogueNodeType.Narration => colorNarration,
             _                          => Color.gray,
         };

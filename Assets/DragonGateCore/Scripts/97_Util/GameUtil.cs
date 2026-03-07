@@ -171,5 +171,40 @@ namespace DragonGate
             var screenPosition = camera.WorldToScreenPoint(worldPosition);
             return new Vector2(screenPosition.x, screenPosition.y);
         }
+
+        public static Camera CreatePerspectiveCamera(string name = null)
+        {
+            var camera = CreateCamera(name);
+            camera.orthographic = false;
+            return camera;
+        }
+
+        public static Camera CreateOrthographicCamera(string name = null)
+        {
+            var camera = CreateCamera(name);
+            camera.orthographic = true;
+            return camera;
+        }
+
+        private static Camera CreateCamera(string name)
+        {
+            name ??= "New Camera";
+            GameObject cameraObj = new GameObject(name);
+            Camera cam = cameraObj.AddComponent<Camera>();
+            cam.transform.position = new Vector3(0, 0, -10f);
+            cam.transform.LookAt(Vector3.zero);
+            cam.nearClipPlane = 0.01f;
+            return cam;
+        }
+
+        public static Light CreateDirectionalLight()
+        {
+            // Add a light
+            GameObject lightObj = new GameObject("Directional Light");
+            Light light = lightObj.AddComponent<Light>();
+            light.type = LightType.Directional;
+            light.transform.rotation = Quaternion.Euler(50, -30, 0);
+            return light;
+        }
     }
 }

@@ -51,6 +51,14 @@ namespace DragonGate
 
         #region Common
 
+        public void Show(UICore uiCore)
+        {
+            if (uiCore is PanelCore panelCore)
+                _panelController.Show(panelCore);
+            else if (uiCore is PopupCore popupCore)
+                _popupController.Show(popupCore);
+        }
+
         public void Hide(UICore uiCore)
         {
             if (uiCore == null) return;

@@ -11,12 +11,14 @@ namespace DragonGate
     {
         // ── 식별 ────────────────────────────────
         public string         nodeId;
-        public DialogueNodeType nodeType;
+        public DialogueNodeType NodeType;
 
+        // 캐릭터 -> NodeType이 캐릭터인 경우만 사용
+        public DialogueCharacterAsset SpeakerCharacter;
         // ── 대화 내용 ───────────────────────────
-        public LocalizedString SpeakerName;
         public LocalizedString DialogueText;
-        public AssetReference SpeakerPortrait;
+        /// <summary>Narration 전용: 캐릭터 없이 표시할 화자 이름.</summary>
+        public LocalizedString NarrationSpeakerName;
 
         // ── 분기 ────────────────────────────────
         /// <summary>선택지가 있을 때 사용. 비어있으면 nextNodeId로 자동 진행.</summary>
@@ -26,7 +28,14 @@ namespace DragonGate
         public string NextNodeId;
 
         // ── 챕터 이동 (ChapterEnd 전용) ─────────
-        public string TargetChapterId;
+        public AssetReference NextChapter;
+
+        // ── 컨디션 (Condition 전용) ──────────────
+        public List<DialogueCondition> Conditions = new List<DialogueCondition>();
+        /// <summary>AND 조건이 true 일 때 이동할 노드 ID.</summary>
+        public string TrueNodeId;
+        /// <summary>AND 조건이 false 일 때 이동할 노드 ID.</summary>
+        public string FalseNodeId;
 
         // ── 이벤트 ──────────────────────────────
         /// <summary>이 노드에 진입할 때 실행할 이벤트 목록.</summary>
@@ -40,9 +49,35 @@ namespace DragonGate
 
         // 에디터 표시용 헬퍼
         public string NodeTitle =>
-            nodeType == DialogueNodeType.Start      ? "START"       :
-            nodeType == DialogueNodeType.ChapterEnd ? "CHAPTER END" :
-            (SpeakerName == null || SpeakerName.IsEmpty)       ? nodeType.ToString() :
-            SpeakerName.TableEntryReference.ToString();
+            NodeType == DialogueNodeType.Start ? "START" :
+            NodeType == DialogueNodeType.ChapterEnd ? "CHAPTER END" :
+            NodeType == DialogueNodeType.Condition ? "IF" :
+            NodeType == DialogueNodeType.Narration ? NarrationSpeakerName == null || NarrationSpeakerName.IsEmpty ? "NARRATION" : NarrationSpeakerName.TableEntryReference.ToString() :
+            NodeType == DialogueNodeType.Character ? SpeakerCharacter == null || SpeakerCharacter.GetName() == null ? "CHARACTER" : SpeakerCharacter.GetName() :
+            "NODE TITLE";
     }
+    
+    [Serializable]
+    public struct DialogueCondition
+    {
+        public ConditionType ConditionType;
+        // 어떤 타입을 쓸지 태그
+        public ConditionParamType ParamType;
+        public ConditionParamCheckType CheckType;
+
+        // 타입별 전용 필드 (박싱 없음, Unity 직렬화 가능)
+        public int    IntValue;
+        public float  FloatValue;
+        public bool   BoolValue;
+        public string StringValue;
+
+        // ── 타입 안전 접근자 ──────────────────────────────────────────
+        public int    AsInt    => IntValue;
+        public float  AsFloat  => FloatValue;
+        public bool   AsBool   => BoolValue;
+        public string AsString => StringValue;
+    }
+
+    public enum ConditionParamType { Int, Float, Bool, String }
+    public enum ConditionParamCheckType { Greater, GreaterOrEqual, Less, LessOrEqual, Equal }
 }

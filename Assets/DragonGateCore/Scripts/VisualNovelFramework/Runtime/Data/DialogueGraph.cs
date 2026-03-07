@@ -33,7 +33,7 @@ namespace DragonGate
             var node = new DialogueNode
             {
                 nodeId          = Guid.NewGuid().ToString(),
-                nodeType        = type,
+                NodeType        = type,
                 editorPosition  = position,
             };
 
@@ -54,7 +54,9 @@ namespace DragonGate
             // 끊어진 참조 정리
             foreach (var n in nodes)
             {
-                if (n.NextNodeId == id) n.NextNodeId = null;
+                if (n.NextNodeId  == id) n.NextNodeId  = null;
+                if (n.TrueNodeId  == id) n.TrueNodeId  = null;
+                if (n.FalseNodeId == id) n.FalseNodeId = null;
                 foreach (var c in n.Choices)
                     if (c.TargetNodeId == id) c.TargetNodeId = null;
             }

@@ -13,13 +13,15 @@ namespace DragonGate
         public DialogueEventType eventType;
         public AssetReference Asset;
 
-        // Character sprite
-        public string      CharacterId;
-        public Sprite      CharacterSprite;
-        public CharacterPosition CharacterPosition;
+        // 캐릭터 공통 식별자 (ShowCharacter / HideCharacter / PlayAnimation / SetCharacterEmotion)
+        public DialogueCharacterAsset CharacterAsset;
+
+        // ShowCharacter 전용: 뷰포트 기준 위치 (0~1), 크기 배율
+        public Vector2 CharacterViewportPosition = new Vector2(0.5f, 0f);
+        public float   CharacterScale            = 1f;
 
         // Animation / Effect
-        public string    AnimationTrigger;
+        public string AnimationTrigger;
 
         // UI
         public string UiElementId;

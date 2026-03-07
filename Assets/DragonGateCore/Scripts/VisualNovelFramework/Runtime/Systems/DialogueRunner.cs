@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DragonGate;
@@ -16,17 +17,24 @@ namespace DragonGate
         [Header("Start")]
         [SerializeField] private DialogueGraph _startingDialogue;
         [Header("References")]
+        [SerializeField] private Camera _camera;
         [SerializeField] private SpriteRenderer _background;
-        [SerializeField] private SpriteRenderer _playerCharacter;
-        [SerializeField] private SpriteRenderer _npcCharacter;
+        [SerializeField] private Light _mainLight;
+        [Header("UI")]
         [SerializeField] private AssetReference _dialogueUIPrefab;
         public SpriteRenderer Background => _background;
 
         // ── 이벤트 ──────────────────────────────────────────────────────
-        public event Action<DialogueNode> OnNodeEnter;
-        public event Action<DialogueNode> OnNodeExit;
-        public event Action               OnDialogueEnd;
-        public event Action<string>       OnChapterTransition; // arg: targetChapterId
+        public event Action<DialogueNode> OnNodeEnter; // 노드 들어올 때
+        public event Action<DialogueNode> OnNodeExit; // 노드 나갈 때
+        public event Action               OnDialogueEnd; // 대화 종료 시 콜백
+
+        // ── 컨디션 평가자 ────────────────────────────────────────────────
+        /// <summary>
+        /// 프레임워크 외부에서 IConditionEvaluator 구현체를 등록하세요.
+        /// 등록하지 않으면 Condition 노드는 항상 false 로 평가됩니다.
+        /// </summary>
+        public IConditionEvaluator ConditionEvaluator { get; set; }
 
         // ── 상태 ────────────────────────────────────────────────────────
         private DialogueGraph _currentGraph;
@@ -34,6 +42,7 @@ namespace DragonGate
         public  bool          IsRunning { get; private set; }
         
         private EventExecutor _eventExecutor;
+        private DialogueCharacterManager _characterManager = new();
         private UIDialogue _uiDialogue;
         private CancellationTokenSource _tokenSource;
 
@@ -41,12 +50,16 @@ namespace DragonGate
         {
             base.Awake();
             _eventExecutor = new EventExecutor(this);
-        }
-
-        private void Start()
-        {
-            CameraManager.EnableCamera(Camera.main);
-            StartDialogue(_startingDialogue);
+            
+            if (_camera == null)
+            {
+                _camera = Camera.main;
+                if (_camera == null)
+                {
+                    _camera = GameUtil.CreateOrthographicCamera("Generated Camera");
+                }
+            }
+            CameraManager.EnableCamera(_camera);
         }
 
         // ── 공개 API ────────────────────────────────────────────────────
@@ -92,7 +105,7 @@ namespace DragonGate
             if (_eventExecutor != null && node.EnterEvents?.Count > 0)
                 _eventExecutor.ExecuteEvents(node.EnterEvents).Forget();
 
-            switch (node.nodeType)
+            switch (node.NodeType)
             {
                 case DialogueNodeType.Start:
                     // Start 노드는 표시 없이 바로 다음으로
@@ -103,14 +116,35 @@ namespace DragonGate
                     ExitNode(node);
                     IsRunning = false;
                     HideDialogueUI();
-                    HideAllPortraits();
-                    OnChapterTransition?.Invoke(node.TargetChapterId);
+                    HideAllCharacter();
                     OnDialogueEnd?.Invoke();
+                    OnChapterEnd(node.NextChapter);
+                    break;
+
+                case DialogueNodeType.Condition:
+                    ExitNode(node);
+                    if (ConditionEvaluator == null)
+                        Debug.LogWarning("[VNFramework] Condition 노드에 도달했지만 IConditionEvaluator 가 등록되지 않았습니다. True 로 처리합니다.");
+                    bool conditionResult = ConditionEvaluator?.Evaluate(node.Conditions) ?? true;
+                    string nextNodeId = conditionResult ? node.TrueNodeId : node.FalseNodeId;
+                    if (!string.IsNullOrEmpty(nextNodeId))
+                    {
+                        var nextNode = _currentGraph.GetNode(nextNodeId);
+                        if (nextNode != null)
+                        {
+                            EnterNode(nextNode);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        DGDebug.LogError("Next Node is not exists on Condition Node.");
+                    }
+                    EndDialogue();
                     break;
 
                 default:
                     ShowDialogueUI();
-                    ShowPortrait(node.nodeType, node.SpeakerPortrait);
                     _uiDialogue?.DisplayNode(node, HandleChoiceSelected, HandleAdvance);
                     break;
             }
@@ -178,74 +212,66 @@ namespace DragonGate
             OnDialogueEnd?.Invoke();
         }
 
+        private void OnChapterEnd(AssetReference nextChapterReference)
+        {
+            
+        }
+
         private void ShowDialogueUI()
         {
             if (_uiDialogue == null)
             {
-                _uiDialogue = UIManager.Instance.ShowPopup<UIDialogue>(_dialogueUIPrefab.RuntimeKey.ToString());
+                _uiDialogue = UIManager.Instance.ShowPanel<UIDialogue>(_dialogueUIPrefab.RuntimeKey.ToString());
+                return;
             }
+            UIManager.Instance.Show(_uiDialogue);
         }
 
         private void HideDialogueUI()
         {
             if (_uiDialogue == null) return;
-            UIManager.Instance.HidePopup(_uiDialogue);
+            UIManager.Instance.HidePanel(_uiDialogue);
         }
 
-        private void ShowPortrait(DialogueNodeType nodeType, AssetReference spriteRef)
+        public void HideAllCharacter()
         {
-            var key = spriteRef.RuntimeKeyIsValid() ? spriteRef.RuntimeKey.ToString() : "";
-            switch (nodeType)
+            _characterManager.HideAllCharacter();
+        }
+
+        public void HideCharacter(int id)
+        {
+            _characterManager.HideCharacter(id);
+        }
+
+        public void ShowCharacter(DialogueCharacterAsset asset, Vector2 position, float scale = 1f)
+        {
+            if (asset.IsValidCharacterAsset == false)
             {
-                case DialogueNodeType.Player:
-                {
-                    ShowPlayerPortrait(key);
-                    break;
-                }
-                case DialogueNodeType.NPC:
-                {
-                    ShowNPCPortrait(key);
-                    break;
-                }
-                default:
-                {
-                    _playerCharacter.sprite = null;
-                    _npcCharacter.sprite = null;
-                    break;
-                }
-            }
-        }
-
-        private void ShowPlayerPortrait(string key)
-        {
-            if (string.IsNullOrEmpty(key))
-            {   
-                _playerCharacter.sprite = null;
                 return;
             }
-            _playerCharacter.SetSprite(key);
-        }
 
-        private void ShowNPCPortrait(string key)
-        {
-            if (string.IsNullOrEmpty(key))
+            if (scale <= 0f)
             {
-                _npcCharacter.sprite = null;
-                return;
+                DGDebug.Log("Character Scale is less or equal to zero!!", Color.red);
             }
-            _npcCharacter.SetSprite(key);
+            _characterManager.ShowCharacter(asset, position, scale);
         }
 
-        private void HideAllPortraits()
+        public void PlayCharacterAnimation(int characterId, string triggerName)
         {
-            _playerCharacter.sprite = null;
-            _npcCharacter.sprite = null;
+            _characterManager.PlayAnimation(characterId, triggerName);
         }
 
         public void SetBackground(string key)
         {
             _background.SetSprite(key);
             CameraManager.CurrentCamera.FitCameraToSpriteRenderer(_background);
+        }
+
+        private DialogueCharacter GetCharacter(AssetReference reference)
+        {
+            var character = PoolManager.Instance.GetComponent<DialogueCharacter>(reference.RuntimeKey.ToString());
+            return character;
         }
     }
 }

@@ -22,35 +22,20 @@ namespace DragonGate
 
         public PanelCore Show(string key) => Show(key, 0);
         public T Show<T>(string key) where T : PanelCore => Show(key) as T;
+        public PanelCore Show(PanelCore instance) => Show(instance, 0);
+        public T Show<T>(PanelCore instance) where T : PanelCore => Show(instance) as T;
 
         public PanelCore Show<ViewState>(string key, ViewState viewState) where ViewState : struct
         {
             var entry = GetOrCreateEntry(key);
             if (LoadPanel(entry) == false) return null;
+            return ActivatePanel(entry, viewState);
+        }
 
-            // 동일 패널은 다시 열지 않음
-            if (_currentPanel == entry) return entry.Instance;
-
-            DGDebug.Log($"PanelController : Show ({key})", Color.yellow);
-
-            // 이전 패널 히스토리에 추가
-            if (_currentPanel != null)
-            {
-                _history.Push(_currentPanel);
-                _currentPanel.Instance.SetHidden();
-            }
-
-            // 새 패널 표시
-            entry.Instance.SetVisible();
-            _currentPanel = entry;
-
-            // 렌더 상태 적용
-            if (entry.Instance is IViewState<ViewState> stateView)
-            {
-                stateView.SetViewState(in viewState);
-            }
-
-            return entry.Instance;
+        public PanelCore Show<ViewState>(PanelCore instance, ViewState viewState) where ViewState : struct
+        {
+            var entry = GetOrCreateEntryByInstance(instance);
+            return ActivatePanel(entry, viewState);
         }
 
         public T Show<T, ViewState>(string key, ViewState viewState) where ViewState : struct where T : PanelCore
@@ -110,18 +95,44 @@ namespace DragonGate
 
         private PanelEntry GetOrCreateEntry(string key)
         {
-            if (_entries.TryGetValue(key, out var entry))
-            {
-                return entry;
-            }
+            if (_entries.TryGetValue(key, out var entry)) return entry;
 
-            var newEntry = new PanelEntry
-            {
-                Key = key,
-                LoadStatus = ELoadStatus.None
-            };
+            var newEntry = new PanelEntry { Key = key, LoadStatus = ELoadStatus.None };
             _entries.Add(key, newEntry);
             return newEntry;
+        }
+
+        private PanelEntry GetOrCreateEntryByInstance(PanelCore instance)
+        {
+            foreach (var e in _entries.Values)
+                if (e.Instance == instance) return e;
+
+            var key = instance.GetType().Name;
+            var entry = new PanelEntry { Key = key, LoadStatus = ELoadStatus.Loaded, Instance = instance };
+            _entries[key] = entry;
+            instance.transform.SetParent(GetPanelCanvas().transform, false);
+            return entry;
+        }
+
+        private PanelCore ActivatePanel<ViewState>(PanelEntry entry, ViewState viewState) where ViewState : struct
+        {
+            if (_currentPanel == entry) return entry.Instance;
+
+            DGDebug.Log($"PanelController : Show ({entry.Key})", Color.yellow);
+
+            if (_currentPanel != null)
+            {
+                _history.Push(_currentPanel);
+                _currentPanel.Instance.SetHidden();
+            }
+
+            entry.Instance.SetVisible();
+            _currentPanel = entry;
+
+            if (entry.Instance is IViewState<ViewState> stateView)
+                stateView.SetViewState(in viewState);
+
+            return entry.Instance;
         }
 
         private bool LoadPanel(PanelEntry entry)

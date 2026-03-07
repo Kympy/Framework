@@ -1,3 +1,4 @@
+using System.Globalization;
 using Cysharp.Threading.Tasks;
 using JetBrains.Annotations;
 using UnityEngine;
@@ -74,7 +75,9 @@ namespace DragonGate
 
         protected virtual UniTask PreLoad()
         {
-            DGDebug.Log($"System Language : {Application.systemLanguage}");
+            DGDebug.Log($"Application System Language : {Application.systemLanguage}");
+            DGDebug.Log($"Culture Info Current: {CultureInfo.CurrentCulture}");
+            DGDebug.Log($"Culture Info UI : {CultureInfo.CurrentUICulture}");
             if (LocalizationSettings.SelectedLocale == null)
             {
                 var locale = LocalizationSettings.AvailableLocales.GetLocale(new LocaleIdentifier(Application.systemLanguage));

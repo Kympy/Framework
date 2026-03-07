@@ -130,8 +130,10 @@ namespace DragonGate
 
             canvas.AddComponent<GraphicRaycaster>();
             var scaler = canvas.AddComponent<CanvasScaler>();
-            scaler.matchWidthOrHeight = 0;
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0;
                 
             Object.DontDestroyOnLoad(canvas.gameObject);
             return canvas;

@@ -1112,11 +1112,11 @@ namespace DragonGate.Editor
                         break;
 
                     case DialogueEventType.HideCharacter:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_characterLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
                         break;
 
                     case DialogueEventType.PlayAnimation:
-                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Asset"), s_characterLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("AnimationTrigger"), s_animTriggerLabel);
                         break;
 

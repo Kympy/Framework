@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -15,41 +17,44 @@ namespace DragonGate
     {
         // ── Inspector 연결 ──────────────────────────────────────────────
 
-        [Header("대화 박스")]
-        public GameObject     dialoguePanel;
+        [Header("화자")]
+        [SerializeField] private Image _speakerNameBackground;
         [SerializeField] private LocalizedTextMeshProUGUI _speakerNameText;
+        [SerializeField] private bool _useSpeakerNameBackgroundColor = false;
+        
+        [Header("대화 박스")]
         [SerializeField] private LocalizedTextMeshProUGUI _dialogueBodyText;
+        
+        [Header("다음")]
         [SerializeField] private BetterButton         _nextButton;       // 클릭 → 다음 대화
 
         [Header("선택지 패널")]
         [SerializeField] private RecycledScrollView _choiceScrollView;
 
         [Header("노드 타입별 색상")]
-        public Color colorNPC       = new Color(0.2f, 0.55f, 0.85f);
-        public Color colorPlayer    = new Color(0.3f, 0.75f, 0.45f);
-        public Color colorNarration = new Color(0.75f, 0.65f, 0.9f);
-        public Image speakerNameBackground;
+        [SerializeField] private Color _colorCharacter    = new Color(0.3f, 0.75f, 0.45f);
+        [SerializeField] private Color _colorNarration = new Color(0.75f, 0.65f, 0.9f);
 
         [Header("설정")]
-        public float textSpeed = 0.025f;   // 글자당 초
         public bool  autoSkipOnClick = true;
 
         // ── 내부 상태 ───────────────────────────────────────────────────
 
         private Action              onAdvance;
         private Action<ChoiceData>  onChoice;
-
-        private Coroutine typewriterCo;
-        private bool      isTyping;
-        private string    fullText;
-        private DialogueNode currentNode;
+        
+        private bool      _isTyping;
+        private string    _fullText;
+        private DialogueNode _currentNode;
         private List<ChoiceData> _choices = new List<ChoiceData>();
+
+        private CancellationTokenSource _textTokenSource;
 
         // ── Unity 생명주기 ──────────────────────────────────────────────
 
         private void Awake()
         {
-            _nextButton?.onClick.AddListener(OnAdvanceClicked);
+            _nextButton?.OnLeftUp.AddListener(OnAdvanceClicked);
             _choiceScrollView.Init(GetChoiceCount, OnUpdateChoices, OnInitChoices);
         }
 
@@ -58,12 +63,16 @@ namespace DragonGate
                                 Action<ChoiceData> choiceCb,
                                 Action             advanceCb)
         {
-            currentNode = node;
+            _currentNode = node;
             onAdvance   = advanceCb;
             onChoice    = choiceCb;
 
             HideChoices();
             _nextButton.gameObject.SetActive(false);
+            
+            // 노드 타입별 색상
+            if (_useSpeakerNameBackgroundColor && _speakerNameBackground != null)
+                _speakerNameBackground.color = GetNodeColor(node.NodeType);
 
             if (node.NodeType == DialogueNodeType.Narration)
             {
@@ -71,45 +80,61 @@ namespace DragonGate
                 if (node.NarrationSpeakerName == null || node.NarrationSpeakerName.IsEmpty)
                 {
                     _speakerNameText.Clear();
+                    _speakerNameBackground?.SetActive(false);
                 }
                 else
                 {
                     _speakerNameText.SetCopy(node.NarrationSpeakerName);
+                    _speakerNameBackground?.SetActive(true);
                 }
             }
             else if (node.NodeType == DialogueNodeType.Character)
             {
                 _speakerNameText.SetCopy(node.SpeakerCharacter.Name);
+                _speakerNameBackground?.SetActive(true);
             }
-
-            // 노드 타입별 색상
-            if (speakerNameBackground != null)
-                speakerNameBackground.color = GetNodeColor(node.NodeType);
+            else
+            {
+                _speakerNameBackground?.SetActive(false);
+            }
 
             // 타이프라이터 시작
-            if (typewriterCo != null)
-            {
-                StopCoroutine(typewriterCo);
-            }
-            fullText     = node.DialogueText.GetLocalizedString();
-            typewriterCo = StartCoroutine(Typewriter(fullText, node));
+            CancelTypeWriter();
+            _fullText     = node.DialogueText.GetLocalizedString();
+            Typewriter(_fullText, node).Forget();
         }
 
         // ── 타이프라이터 ─────────────────────────────────────────────────
 
-        private IEnumerator Typewriter(string text, DialogueNode node)
+        private async UniTask Typewriter(string text, DialogueNode node)
         {
-            isTyping             = true;
+            _isTyping             = true;
             _dialogueBodyText.text = "";
-
+            EnsureTextTokenSource();
             foreach (char c in text)
             {
                 _dialogueBodyText.text += c;
-                yield return new WaitForSeconds(textSpeed);
+                await UniTask.WaitForSeconds(node.TextSpeed, cancellationToken: _textTokenSource.Token);
             }
-
-            isTyping = false;
+            
+            _isTyping = false;
             OnTextComplete(node);
+        }
+
+        private void EnsureTextTokenSource()
+        {
+            if (_textTokenSource == null ||  _textTokenSource.IsCancellationRequested)
+            {
+                _textTokenSource = UniTaskHelper.CreateObjectToken(this);
+            }
+        }
+
+        private void CancelTypeWriter()
+        {
+            _textTokenSource?.Cancel();
+            _textTokenSource?.Dispose();
+            _textTokenSource = null;
+            _isTyping = false;
         }
 
         private void OnTextComplete(DialogueNode node)
@@ -158,13 +183,12 @@ namespace DragonGate
 
         private void OnAdvanceClicked()
         {
-            if (isTyping && autoSkipOnClick)
+            if (_isTyping && autoSkipOnClick)
             {
                 // 타이핑 스킵 → 전체 텍스트 즉시 표시
-                if (typewriterCo != null) StopCoroutine(typewriterCo);
-                isTyping              = false;
-                _dialogueBodyText.text = fullText;
-                OnTextComplete(currentNode);
+                CancelTypeWriter();
+                _dialogueBodyText.text = _fullText;
+                OnTextComplete(_currentNode);
                 return;
             }
             onAdvance?.Invoke();
@@ -187,8 +211,8 @@ namespace DragonGate
 
         private Color GetNodeColor(DialogueNodeType t) => t switch
         {
-            DialogueNodeType.Character    => colorPlayer,
-            DialogueNodeType.Narration => colorNarration,
+            DialogueNodeType.Character    => _colorCharacter,
+            DialogueNodeType.Narration => _colorNarration,
             _                          => Color.gray,
         };
     }

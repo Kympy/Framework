@@ -12,7 +12,7 @@ namespace DragonGate
 
         private void Awake()
         {
-            _button.OnLeftClick.AddListener(() => OnChoiceClicked?.Invoke(Index));
+            _button.OnLeftUp.AddListener(() => OnChoiceClicked?.Invoke(Index));
         }
 
         public void SetData(ChoiceData data)

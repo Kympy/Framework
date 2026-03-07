@@ -17,6 +17,7 @@ namespace DragonGate
         public DialogueCharacterAsset SpeakerCharacter;
         // ── 대화 내용 ───────────────────────────
         public LocalizedString DialogueText;
+        public float TextSpeed = 0.1f;
         /// <summary>Narration 전용: 캐릭터 없이 표시할 화자 이름.</summary>
         public LocalizedString NarrationSpeakerName;
 

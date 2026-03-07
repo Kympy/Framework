@@ -80,6 +80,13 @@ namespace DragonGate.Editor
 
         // 인스펙터 스크롤
         private Vector2 inspectorScroll;
+        
+        // 줌
+        private float _zoom = 1f;
+        private Matrix4x4 _prevMatrix;
+        private const float ZOOM_MIN = 0.6f;
+        private const float ZOOM_MAX = 1.3f;
+        private const float ZOOM_STEP = 0.1f;
 
         // 접기 상태
         private bool foldEnterEvents = true;
@@ -98,6 +105,7 @@ namespace DragonGate.Editor
         private static readonly GUIContent s_speakerNameLabel = new GUIContent("화자 이름 (내레이션)");
         private static readonly GUIContent s_characterAssetLabel = new GUIContent("캐릭터 에셋");
         private static readonly GUIContent s_dialogueTextLabel = new GUIContent("대화 텍스트");
+        private static readonly GUIContent s_dialogueTextSpeedLabel = new GUIContent("텍스트 속도");
         private static readonly GUIContent s_nextChapterLabel = new GUIContent("다음 챕터");
         private static readonly GUIContent s_choiceTextLabel = new GUIContent("텍스트");
         private static readonly GUIContent s_isEnabledLabel = new GUIContent("활성화");
@@ -132,6 +140,8 @@ namespace DragonGate.Editor
         private GUIStyle _inspectorTitle12;
         private GUIStyle _inspectorTitle13;
         private GUIStyle _centeredLabelStyle;
+        
+        private const float UNITY_TAB_H = 21f; // EditorWindow 탭 높이 고정값
         
         // 작업 씬
         private const string WORK_SCENE_PATH = "Assets/Scenes/DialoguePreview.unity";
@@ -255,6 +265,11 @@ namespace DragonGate.Editor
         // 언어
         private void RefreshLocales()
         {
+            if (LocalizationSettings.AvailableLocales == null)
+            {
+                var initOperation = LocalizationSettings.InitializationOperation;
+                if (initOperation.IsDone == false) initOperation.WaitForCompletion();
+            }
             var locales = LocalizationSettings.AvailableLocales?.Locales;
             if (locales == null || locales.Count == 0)
             {
@@ -386,29 +401,40 @@ namespace DragonGate.Editor
             DrawGrid(rect, 20f, GRID_FINE);
             DrawGrid(rect, 100f, GRID_COARSE);
 
-            GUI.BeginGroup(rect);
+            // GUI.BeginGroup(rect);
 
             if (graph == null)
             {
+                GUI.BeginGroup(rect);
                 DrawCenteredLabel(rect, "그래프를 로드하거나 새로 만드세요\n(툴바 또는 우클릭 메뉴 사용)");
                 GUI.EndGroup();
                 return;
             }
+            BeginZoomArea(rect);
+            
+            // ── 줌 행렬 적용 ──────────────────────────────────────────────
+            var prevMatrix = GUI.matrix;
+            // var zoomPivot = new Vector2(rect.width * 0.5f, rect.height * 0.5f);
+            // GUIUtility.ScaleAroundPivot(Vector2.one * _zoom, zoomPivot);
+            // var pivot = Vector2.zero;
+            // GUIUtility.ScaleAroundPivot(Vector2.one * _zoom, pivot);
 
             foreach (var n in graph.nodes) DrawNodeConnections(n);
 
             if (connectFromNode != null)
             {
                 var from = GetOutputPortPos(connectFromNode, connectFromChoiceIdx);
-                var rawEnd = Event.current.mousePosition - new Vector2(0, TOOLBAR_H);
+                // var rawEnd = Event.current.mousePosition - new Vector2(0, TOOLBAR_H);
+                // var mousePosInCanvas = (Event.current.mousePosition - rect.position) / _zoom;
+                var mousePosInCanvas = ScreenToCanvas(Event.current.mousePosition, rect);
 
                 // 가장 가까운 Input 포트에 스냅 → 시각적 끝점 정렬
-                var snapEnd = rawEnd;
+                var snapEnd = mousePosInCanvas;
                 foreach (var n in graph.nodes)
                 {
                     if (n == connectFromNode) continue;
                     var portPos = GetInputPortPos(n);
-                    if (Vector2.Distance(rawEnd, portPos) < PORT_R + 5f)
+                    if (Vector2.Distance(mousePosInCanvas, portPos) < PORT_R + 5f)
                     {
                         snapEnd = portPos;
                         break;
@@ -420,8 +446,38 @@ namespace DragonGate.Editor
             }
 
             foreach (var n in graph.nodes) DrawNode(n);
+            
+            GUI.matrix = prevMatrix;
 
-            GUI.EndGroup();
+            // GUI.EndGroup();
+            EndZoomArea(rect);
+        }
+        
+        private void BeginZoomArea(Rect rect)
+        {
+            // Unity 기본 윈도우 클립을 스택에서 꺼냄
+            GUI.EndClip();
+
+            // 줌 아웃 시 더 넓은 영역을 클리핑 허용
+            var zoomedRect = new Rect(
+                rect.x,
+                rect.y + UNITY_TAB_H,
+                rect.width  / _zoom,
+                rect.height / _zoom
+            );
+            GUI.BeginClip(zoomedRect);
+
+            _prevMatrix = GUI.matrix;
+            GUIUtility.ScaleAroundPivot(Vector2.one * _zoom, Vector2.zero);
+        }
+        
+        private void EndZoomArea(Rect rect)
+        {
+            GUI.matrix = _prevMatrix;
+            GUI.EndClip();
+
+            // 꺼냈던 윈도우 클립 복원
+            GUI.BeginClip(new Rect(0, UNITY_TAB_H, Screen.width, Screen.height));
         }
 
         // ── 그리드 ────────────────────────────────────────────────────
@@ -479,7 +535,7 @@ namespace DragonGate.Editor
             }
 
             string preview;
-            if (node.DialogueText.IsEmpty)
+            if (node.DialogueText == null || node.DialogueText.IsEmpty)
             {
                 preview = "<텍스트 없음>";
             }
@@ -889,9 +945,11 @@ namespace DragonGate.Editor
                     EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.SpeakerCharacter"), s_characterAssetLabel);
                     GUILayout.Space(6);
                 }
-
+                // 대화 텍스트
                 var dialogueTextProp = so.FindProperty($"{nodePath}.DialogueText");
                 EditorGUILayout.PropertyField(dialogueTextProp, s_dialogueTextLabel);
+                // 대화 속도
+                EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.TextSpeed"), s_dialogueTextSpeedLabel);
             }
 
             if (node.NodeType == DialogueNodeType.ChapterEnd)
@@ -1134,13 +1192,13 @@ namespace DragonGate.Editor
 
                     if (isDraggingNode && !string.IsNullOrEmpty(_selectedNodeId))
                     {
-                        SelectedNode.editorPosition += delta;
+                        SelectedNode.editorPosition += delta / _zoom;
                         EditorUtility.SetDirty(graph);
                         e.Use();
                     }
                     else if (isDraggingCanvas || e.button == 2)
                     {
-                        scrollOffset += delta;
+                        scrollOffset += delta / _zoom;
                         e.Use();
                     }
                     else if (connectFromNode != null)
@@ -1154,14 +1212,36 @@ namespace DragonGate.Editor
                     DeleteSelectedNode();
                     e.Use();
                     break;
+                    
+                case EventType.ScrollWheel when inCanvas:
+                    float zoomDelta = -e.delta.y * ZOOM_STEP;
+                    float prevZoom = _zoom;
+                    _zoom = Mathf.Clamp(_zoom + zoomDelta, ZOOM_MIN, ZOOM_MAX);
+
+                    // 마우스 위치 기준으로 줌 (마우스 포인터 고정)
+                    var mouseInCanvas = e.mousePosition - canvasRect.position;
+                    scrollOffset += mouseInCanvas * (1f / _zoom - 1f / prevZoom);
+
+                    e.Use();
+                    break;
             }
+        }
+        
+        private Vector2 ScreenToCanvas(Vector2 screenPos, Rect canvasRect)
+        {
+            // var pivot = new Vector2(canvasRect.width * 0.5f, canvasRect.height * 0.5f);
+            // return (screenPos - canvasRect.position - pivot) / _zoom + pivot;
+            // pivot을 (0,0) 기준으로 변경
+            // return (screenPos - canvasRect.position) / _zoom;
+            return new Vector2((screenPos.x - canvasRect.x) / _zoom,  (screenPos.y - canvasRect.y) / _zoom);
         }
 
         private void OnLeftDown(Event e, Rect canvasRect)
         {
             if (graph == null) return;
 
-            var mousePosition = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            // var mousePosition = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            var mousePosition = ScreenToCanvas(e.mousePosition, canvasRect);
 
             foreach (var n in graph.nodes)
             {
@@ -1229,14 +1309,15 @@ namespace DragonGate.Editor
         {
             if (connectFromNode == null) return;
 
-            var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            // var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            var mousePosition = ScreenToCanvas(e.mousePosition, canvasRect);
 
             if (graph != null)
             {
                 foreach (var n in graph.nodes)
                 {
                     if (n == connectFromNode) continue;
-                    if (Vector2.Distance(mp, GetInputPortPos(n)) < PORT_R + 3)
+                    if (Vector2.Distance(mousePosition, GetInputPortPos(n)) < PORT_R + 3)
                     {
                         if (connectFromChoiceIdx >= 0)
                             connectFromNode.Choices[connectFromChoiceIdx].TargetNodeId = n.nodeId;
@@ -1261,15 +1342,16 @@ namespace DragonGate.Editor
         {
             if (graph == null)
             {
-                ShowCanvasMenu(e.mousePosition);
+                ShowCanvasMenu(e.mousePosition, canvasRect);
                 e.Use();
                 return;
             }
 
-            var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            // var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
+            var mousePosition = ScreenToCanvas(e.mousePosition, canvasRect);
             foreach (var n in graph.nodes)
             {
-                if (GetNodeRect(n).Contains(mp))
+                if (GetNodeRect(n).Contains(mousePosition))
                 {
                     ShowNodeMenu(n);
                     e.Use();
@@ -1277,7 +1359,7 @@ namespace DragonGate.Editor
                 }
             }
 
-            ShowCanvasMenu(e.mousePosition);
+            ShowCanvasMenu(e.mousePosition, canvasRect);
             e.Use();
         }
 
@@ -1308,10 +1390,10 @@ namespace DragonGate.Editor
             m.ShowAsContext();
         }
 
-        private void ShowCanvasMenu(Vector2 mousePos)
+        private void ShowCanvasMenu(Vector2 mousePos, Rect canvasRect)
         {
             if (graph == null) return;
-            var worldPos = mousePos - new Vector2(0, TOOLBAR_H) - scrollOffset;
+            var worldPos = ScreenToCanvas(mousePos, canvasRect) - scrollOffset;
             var m = new GenericMenu();
             m.AddItem(new GUIContent("추가/🗣 Character 노드"), false, () => AddNodeAt(DialogueNodeType.Character, worldPos));
             m.AddItem(new GUIContent("추가/📖 Narration 노드"), false, () => AddNodeAt(DialogueNodeType.Narration, worldPos));

@@ -12,6 +12,8 @@ namespace DragonGate
         [SerializeField] private GridConstraint _gridConstraint = GridConstraint.FixedColumnCount;
         [SerializeField] private int _constraintCount = 1;
         [SerializeField] private Vector2 _spacing = Vector2.zero;
+        [SerializeField] private RectOffset _padding = new RectOffset();
+        [SerializeField] private TextAnchor _childAlignment = TextAnchor.UpperLeft;
         [SerializeField] private int _prewarmCount = 0; // how many elements to pre-create
         [SerializeField, Tooltip("Extra rows/cols to render beyond the viewport for smoothness")] private int _bufferElementCount = 1;
         #if UNITY_EDITOR
@@ -35,6 +37,8 @@ namespace DragonGate
         private float _cachedContentHeight;
         private float _cachedMaxScrollX;
         private float _cachedMaxScrollY;
+        private float _cachedStartX;         // grid origin within content (padding + alignment)
+        private float _cachedStartY;
 
         private readonly List<RecycledScrollViewElement> _runtimeSpawned = new();
 
@@ -155,11 +159,44 @@ namespace DragonGate
             _cachedContentWidth  = _cachedCols > 0 ? _cachedCols * _elementSize.x + Mathf.Max(0, _cachedCols - 1) * _spacing.x : 0f;
             _cachedContentHeight = _cachedRows > 0 ? _cachedRows * _elementSize.y + Mathf.Max(0, _cachedRows - 1) * _spacing.y : 0f;
 
-            _cachedMaxScrollX = Mathf.Max(0f, _cachedContentWidth  - viewport.rect.width);
-            _cachedMaxScrollY = Mathf.Max(0f, _cachedContentHeight - viewport.rect.height);
+            float viewW = viewport.rect.width;
+            float viewH = viewport.rect.height;
+            float totalW = _cachedContentWidth  + _padding.left + _padding.right;
+            float totalH = _cachedContentHeight + _padding.top  + _padding.bottom;
 
-            // also push to content
-            content.sizeDelta = new Vector2(_cachedContentWidth, _cachedContentHeight);
+            // 기본 시작점은 padding
+            _cachedStartX = _padding.left;
+            _cachedStartY = _padding.top;
+
+            // 그리드가 뷰포트보다 작으면 alignment 적용
+            if (totalW < viewW)
+            {
+                int hAlign = (int)_childAlignment % 3; // 0=left 1=center 2=right
+                _cachedStartX = hAlign switch
+                {
+                    1 => (viewW - _cachedContentWidth) * 0.5f,
+                    2 => viewW - _cachedContentWidth - _padding.right,
+                    _ => _padding.left,
+                };
+                totalW = viewW;
+            }
+
+            if (totalH < viewH)
+            {
+                int vAlign = (int)_childAlignment / 3; // 0=top 1=middle 2=bottom
+                _cachedStartY = vAlign switch
+                {
+                    1 => (viewH - _cachedContentHeight) * 0.5f,
+                    2 => viewH - _cachedContentHeight - _padding.bottom,
+                    _ => _padding.top,
+                };
+                totalH = viewH;
+            }
+
+            _cachedMaxScrollX = Mathf.Max(0f, totalW - viewW);
+            _cachedMaxScrollY = Mathf.Max(0f, totalH - viewH);
+
+            content.sizeDelta = new Vector2(totalW, totalH);
 
             _layoutDirty = false;
         }
@@ -199,14 +236,18 @@ namespace DragonGate
             float scrollX = Mathf.Max(0f, -content.anchoredPosition.x);
             float scrollY = Mathf.Max(0f, content.anchoredPosition.y);
 
+            // padding/alignment offset을 제외한 그리드 기준 스크롤 위치
+            float gridScrollX = Mathf.Max(0f, scrollX - _cachedStartX);
+            float gridScrollY = Mathf.Max(0f, scrollY - _cachedStartY);
+
             int firstVisibleColumnIndex = 0;
             int firstVisibleRowIndex = 0;
 
             if (_directionType == ScrollDirectionType.Horizontal || _directionType == ScrollDirectionType.Both)
-                firstVisibleColumnIndex = Mathf.FloorToInt(scrollX / elementWidth);
+                firstVisibleColumnIndex = Mathf.FloorToInt(gridScrollX / elementWidth);
 
             if (_directionType == ScrollDirectionType.Vertical || _directionType == ScrollDirectionType.Both)
-                firstVisibleRowIndex = Mathf.FloorToInt(scrollY / elementHeight);
+                firstVisibleRowIndex = Mathf.FloorToInt(gridScrollY / elementHeight);
 
             firstVisibleColumnIndex = Mathf.Clamp(firstVisibleColumnIndex, 0, Mathf.Max(0, totalColumnsCount - 1));
             firstVisibleRowIndex = Mathf.Clamp(firstVisibleRowIndex, 0, Mathf.Max(0, totalRowsCount - 1));
@@ -258,8 +299,8 @@ namespace DragonGate
                 int row = index / totalColumnsCount;
                 int col = index % totalColumnsCount;
 
-                float x = col * elementWidth + _elementSize.x * 0.5f; // pivot 이 중앙이니 절반만큼 더함
-                float y = -(row * elementHeight + _elementSize.y * 0.5f);
+                float x = _cachedStartX + col * elementWidth + _elementSize.x * 0.5f; // pivot 이 중앙이니 절반만큼 더함
+                float y = -(_cachedStartY + row * elementHeight + _elementSize.y * 0.5f);
 
                 var rt = element.Rect;
                 rt.anchorMin = new Vector2(0, 1);

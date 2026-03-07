@@ -14,31 +14,36 @@ namespace DragonGate
         public TextMeshProUGUI ButtonText => _buttonText;
         public Vector2 LastDownPosition { get; protected set; }
 
-        public UnityEvent OnLeftClick { get; protected set; } = new UnityEvent();
-        public UnityEvent OnRightClick { get; protected set; }
-        public UnityEvent OnMiddleClick { get; protected set; }
+        public UnityEvent OnLeftClick  => _onLeftClick  ??= new UnityEvent();
+        public UnityEvent OnRightClick => _onRightClick ??= new UnityEvent();
+        public UnityEvent OnMiddleClick => _onMiddleClick ??= new UnityEvent();
+        private UnityEvent _onLeftClick, _onRightClick, _onMiddleClick;
 
-        public UnityEvent OnLeftDown { get; protected set; }
-        public UnityEvent OnRightDown { get; protected set; }
-        public UnityEvent OnMiddleDown { get; protected set; }
+        public UnityEvent OnLeftDown   => _onLeftDown   ??= new UnityEvent();
+        public UnityEvent OnRightDown  => _onRightDown  ??= new UnityEvent();
+        public UnityEvent OnMiddleDown => _onMiddleDown ??= new UnityEvent();
+        private UnityEvent _onLeftDown, _onRightDown, _onMiddleDown;
 
-        public UnityEvent OnLeftUp { get; protected set; }
-        public UnityEvent OnRightUp { get; protected set; }
-        public UnityEvent OnMiddleUp { get; protected set; }
-        
+        public UnityEvent OnLeftUp   => _onLeftUp   ??= new UnityEvent();
+        public UnityEvent OnRightUp  => _onRightUp  ??= new UnityEvent();
+        public UnityEvent OnMiddleUp => _onMiddleUp ??= new UnityEvent();
+        private UnityEvent _onLeftUp, _onRightUp, _onMiddleUp;
+
         public UnityEvent OnEnter => _onEnter ??= new UnityEvent();
-        protected UnityEvent _onEnter;
-        
-        public UnityEvent OnExit => _onExit ??= new UnityEvent();
-        protected UnityEvent _onExit;
+        private UnityEvent _onEnter;
+        public UnityEvent OnExit  => _onExit  ??= new UnityEvent();
+        private UnityEvent _onExit;
 
-        public UnityEvent OnFullClickEvent { get; protected set; }
-        public UnityEvent OnLongPressEvent { get; protected set; }
-        public UnityEvent OnDoubleClickEvent { get; protected set; }
+        public UnityEvent OnFullClickEvent   => _onFullClickEvent   ??= new UnityEvent();
+        public UnityEvent OnLongPressEvent   => _onLongPressEvent   ??= new UnityEvent();
+        public UnityEvent OnDoubleClickEvent => _onDoubleClickEvent ??= new UnityEvent();
+        private UnityEvent _onFullClickEvent, _onLongPressEvent, _onDoubleClickEvent;
 
-        public UnityEvent OnDragStart { get; protected set; }
-        public UnityEvent<Vector2> OnDragEvent { get; protected set; } // 위치 전달
-        public UnityEvent OnDragEnd { get; protected set; }
+        public UnityEvent OnDragStart          => _onDragStart ??= new UnityEvent();
+        public UnityEvent<Vector2> OnDragEvent => _onDragEvent ??= new UnityEvent<Vector2>(); // 위치 전달
+        public UnityEvent OnDragEnd            => _onDragEnd   ??= new UnityEvent();
+        private UnityEvent _onDragStart, _onDragEnd;
+        private UnityEvent<Vector2> _onDragEvent;
 
         [Header("Settings")]
         public float LongPressThreshold = 0.5f;

@@ -15,6 +15,8 @@ namespace DragonGate
         SerializedProperty _gridConstraint;
         SerializedProperty _constraintCount;
         SerializedProperty _spacing;
+        SerializedProperty _padding;
+        SerializedProperty _childAlignment;
         SerializedProperty _prewarmCount;
         SerializedProperty _bufferElementCount;
 
@@ -28,6 +30,8 @@ namespace DragonGate
             _gridConstraint     = serializedObject.FindProperty("_gridConstraint");
             _constraintCount    = serializedObject.FindProperty("_constraintCount");
             _spacing            = serializedObject.FindProperty("_spacing");
+            _padding            = serializedObject.FindProperty("_padding");
+            _childAlignment     = serializedObject.FindProperty("_childAlignment");
             _prewarmCount       = serializedObject.FindProperty("_prewarmCount");
             _bufferElementCount = serializedObject.FindProperty("_bufferElementCount");
         }
@@ -48,6 +52,8 @@ namespace DragonGate
             EditorGUILayout.PropertyField(_gridConstraint,     new GUIContent("Grid Constraint"));
             EditorGUILayout.PropertyField(_constraintCount,    new GUIContent("Constraint Count"));
             EditorGUILayout.PropertyField(_spacing,            new GUIContent("Spacing"));
+            EditorGUILayout.PropertyField(_padding,            new GUIContent("Padding"));
+            EditorGUILayout.PropertyField(_childAlignment,     new GUIContent("Child Alignment"));
             EditorGUILayout.PropertyField(_prewarmCount,       new GUIContent("Prewarm Count"));
             EditorGUILayout.PropertyField(_bufferElementCount, new GUIContent("Buffer Elements"));
 
@@ -181,22 +187,48 @@ namespace DragonGate
             float elemW = elemSize.x + spacing.x;
             float elemH = elemSize.y + spacing.y;
 
+            var pad = _padding.rectValue;
+            var alignment = (TextAnchor)_childAlignment.enumValueIndex;
+
+            float gridW = cols * elemSize.x + Mathf.Max(0, cols - 1) * spacing.x;
+            float gridH = rows * elemSize.y + Mathf.Max(0, rows - 1) * spacing.y;
+
+            float viewW = scrollView.viewport != null ? scrollView.viewport.rect.width  : 0f;
+            float viewH = scrollView.viewport != null ? scrollView.viewport.rect.height : 0f;
+
+            float totalW = gridW + pad.left + pad.right;
+            float totalH = gridH + pad.top  + pad.bottom;
+
+            float startX = pad.left;
+            float startY = pad.top;
+
+            if (totalW < viewW)
+            {
+                int hAlign = (int)alignment % 3;
+                startX = hAlign switch { 1 => (viewW - gridW) * 0.5f, 2 => viewW - gridW - pad.right, _ => pad.left };
+                totalW = viewW;
+            }
+            if (totalH < viewH)
+            {
+                int vAlign = (int)alignment / 3;
+                startY = vAlign switch { 1 => (viewH - gridH) * 0.5f, 2 => viewH - gridH - pad.bottom, _ => pad.top };
+                totalH = viewH;
+            }
+
             // Content 크기 설정 (스크롤 가능 영역)
             Undo.RecordObject(scrollView.content, "RecycledScrollView Preview");
             scrollView.content.anchorMin        = new Vector2(0, 1);
             scrollView.content.anchorMax        = new Vector2(0, 1);
             scrollView.content.pivot            = new Vector2(0, 1);
             scrollView.content.anchoredPosition = Vector2.zero;
-            scrollView.content.sizeDelta        = new Vector2(
-                cols * elemSize.x + Mathf.Max(0, cols - 1) * spacing.x,
-                rows * elemSize.y + Mathf.Max(0, rows - 1) * spacing.y);
+            scrollView.content.sizeDelta        = new Vector2(totalW, totalH);
 
             for (int i = 0; i < count; i++)
             {
                 int   row = i / cols;
                 int   col = i % cols;
-                float x   = col * elemW + elemSize.x * 0.5f;
-                float y   = -(row * elemH + elemSize.y * 0.5f);
+                float x   = startX + col * elemW + elemSize.x * 0.5f;
+                float y   = -(startY + row * elemH + elemSize.y * 0.5f);
 
                 var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab.gameObject, scrollView.content);
                 go.name = $"[Preview] {i}";

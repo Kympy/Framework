@@ -14,6 +14,12 @@ namespace DragonGate
         private bool _pending = false;
         private CancellationTokenSource _tokenSource;
 
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            GetTokenSource();
+        }
+
         public void LoadScene(SceneInfo sceneInfo)
         {
             if (_pending)

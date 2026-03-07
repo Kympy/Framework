@@ -424,9 +424,8 @@ namespace DragonGate.Editor
             if (connectFromNode != null)
             {
                 var from = GetOutputPortPos(connectFromNode, connectFromChoiceIdx);
-                // var rawEnd = Event.current.mousePosition - new Vector2(0, TOOLBAR_H);
-                // var mousePosInCanvas = (Event.current.mousePosition - rect.position) / _zoom;
-                var mousePosInCanvas = ScreenToCanvas(Event.current.mousePosition, rect);
+                // BeginZoomArea 안: e.mousePosition은 pre-scale GUI 공간 = 드로잉 좌표와 동일 공간.
+                var mousePosInCanvas = Event.current.mousePosition;
 
                 // 가장 가까운 Input 포트에 스냅 → 시각적 끝점 정렬
                 var snapEnd = mousePosInCanvas;

@@ -6,6 +6,6 @@ namespace DragonGate
     {
         public CancellationTokenSource GetTokenSource();
         public void CancelToken();
-        public bool IsValid();
+        public bool IsValidCancelToken();
     }
 }

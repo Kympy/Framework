@@ -56,7 +56,7 @@ namespace DragonGate
             _tokenSource = null;
         }
         
-        public bool IsValid()
+        public bool IsValidCancelToken()
         {
             return _tokenSource is { IsCancellationRequested: false };
         }

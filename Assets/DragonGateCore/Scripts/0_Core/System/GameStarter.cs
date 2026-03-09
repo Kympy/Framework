@@ -122,5 +122,14 @@ namespace DragonGate
             var eventSystemObject = Instantiate(_eventSystemPrefab);
             DontDestroyOnLoad(eventSystemObject);
         }
+
+        public static void QuitGame()
+        {
+        #if UNITY_EDITOR
+            if (Application.isEditor && Application.isPlaying)
+                UnityEditor.EditorApplication.isPlaying = false;
+        #endif
+            Application.Quit();
+        }
     }
 }

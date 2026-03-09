@@ -23,49 +23,42 @@ namespace DragonGate
     {
         [SerializeField] private Image _image;
         [SerializeField] private Gradient _curve;
-
-        private Color _endColor;
+        
         private float _duration;
         private float _elapsed;
 
         private void Awake()
         {
             TryGetComponent(out _image);
+            _curve.colorKeys = new GradientColorKey[2];
         }
 
-        public void SetStartColor(Color color)
+        public void SetInOutColor(Color inColor, Color outColor)
         {
-            _image.color = color;
-
-            if (_curve == null) return;
-
+            _image.color = inColor;
             var colorKeys = _curve.colorKeys;
-            if (colorKeys != null && colorKeys.Length > 0)
-            {
-                colorKeys[0].color = color;
-                _curve.colorKeys = colorKeys;
-            }
+            colorKeys[0] = new GradientColorKey(inColor, 0f);
+            colorKeys[1] = new GradientColorKey(outColor, 1f);
+
+            var alphaKeys = _curve.alphaKeys;
+            alphaKeys[0] = new GradientAlphaKey(inColor.a, 0f);
+            alphaKeys[1] = new GradientAlphaKey(outColor.a, 1f);
+            
+            _curve.SetKeys(colorKeys, alphaKeys);
         }
 
-        public void SetEndColor(Color color)
-        {
-            if (_curve == null) return;
-
-            var colorKeys = _curve.colorKeys;
-            if (colorKeys != null && colorKeys.Length > 0)
-            {
-                colorKeys[^1].color = color;
-                _curve.colorKeys = colorKeys;
-            }
-        }
-
-        public async UniTask Play(float duration)
+        public async UniTask Play(float duration, ICancelable cancelable = null)
         {
             gameObject.SetActive(true);
             _elapsed = 0f;
             while (_elapsed < duration)
             {
-                await UniTaskHelper.Yield(this);
+                await UniTaskHelper.Yield(cancelable ?? this);
+                if (cancelable?.IsValidCancelToken() == false)
+                {
+                    DGDebug.Log("UI Fade canceled.");
+                    break;
+                }
                 _elapsed += Time.deltaTime;
                 var curveColor = _curve.Evaluate(_elapsed / duration);
                 _image.color = curveColor;
@@ -75,16 +68,14 @@ namespace DragonGate
 
         public async UniTask FromBlackToTransparent(float duration, ICancelable cancelable = null)
         {
-            SetStartColor(Color.black);
-            SetEndColor(Color.clear);
-            await Play(duration);
+            SetInOutColor(Color.black, Color.clear);
+            await Play(duration, cancelable);
         }
 
-        public async UniTask FromTransparentToBlack(float duration)
+        public async UniTask FromTransparentToBlack(float duration, ICancelable cancelable = null)
         {
-            SetStartColor(Color.clear);
-            SetEndColor(Color.black);
-            await Play(duration);
+            SetInOutColor(Color.clear, Color.black);
+            await Play(duration, cancelable);
         }
     }
 }

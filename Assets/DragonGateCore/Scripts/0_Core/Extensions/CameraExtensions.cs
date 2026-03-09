@@ -79,7 +79,11 @@ namespace DragonGate
         public static Tween Shake(this Camera target, float duration, Vector3 strength, bool ignoreTimeScale = false)
         {
             if (target == null) return null;
-            if (CameraShaker.HasInstance == false) return null;
+            if (CameraShaker.HasInstance == false)
+            {
+                DGDebug.LogError("Camera Shaker.HasInstance == false");
+                return null;
+            }
             return CameraShaker.Instance.Shake(target, duration, strength, ignoreTimeScale);
         }
 

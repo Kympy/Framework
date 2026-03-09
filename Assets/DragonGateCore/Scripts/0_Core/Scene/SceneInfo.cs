@@ -9,5 +9,6 @@ namespace DragonGate
     {
         public AssetReference SceneReference;
         public AssetReference LoadingScreenReference;
+        public SceneInfo NextSceneInfo;
     }
 }

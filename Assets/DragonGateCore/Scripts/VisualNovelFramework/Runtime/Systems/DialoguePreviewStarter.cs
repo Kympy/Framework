@@ -7,6 +7,12 @@ namespace DragonGate
 {
     public class DialoguePreviewStarter : GameStarter
     {
+        protected override void CreateGlobalSingleton()
+        {
+            base.CreateGlobalSingleton();
+            CameraShaker.CreateInstance();
+        }
+
         protected override async UniTask PreLoad()
         {
             await base.PreLoad();
@@ -27,6 +33,12 @@ namespace DragonGate
             }
 
             await settings.DialogueRunnerPrefab.InstantiateAsync().ToUniTask();
+        }
+
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+            // DialogueRunner.Instance.StartDi
         }
     }
 }

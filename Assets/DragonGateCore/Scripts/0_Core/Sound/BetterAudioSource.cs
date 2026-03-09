@@ -50,6 +50,13 @@ namespace DragonGate
             }
         }
 
+        public async UniTask WaitPlayOneShot(AudioClip argClip, ICancelable cancelable = null, float fadeOut = -1)
+        {
+            var duration = argClip.length;
+            PlayOneShot(argClip, fadeOut);
+            await UniTaskHelper.WaitForSeconds(cancelable ?? this, duration);
+        }
+
         public void Stop()
         {
             Source.Stop();
@@ -112,7 +119,7 @@ namespace DragonGate
             _tokenSource = null;
         }
 
-        public bool IsValid()
+        public bool IsValidCancelToken()
         {
             return _tokenSource is { IsCancellationRequested: false };
         }

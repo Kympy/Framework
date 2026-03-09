@@ -12,11 +12,11 @@ namespace DragonGate
     {
         [SerializeField] private int _id;
         [SerializeField] private LocalizedString _characterName;
-        [SerializeField] private AssetReference _characterPrefab;
+        [SerializeField] private AssetReferenceGameObject _characterPrefab;
 
         public int Id => _id;
         public LocalizedString Name => _characterName;
-        public AssetReference CharacterPrefab => _characterPrefab;
+        public AssetReferenceGameObject CharacterPrefab => _characterPrefab;
         
         public bool IsValidCharacterAsset => _characterPrefab != null && _characterPrefab.RuntimeKeyIsValid();
 

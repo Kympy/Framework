@@ -31,6 +31,18 @@ namespace DragonGate
             }
         }
 
+        public void SetViewportPosition2D(Vector2 viewportPosition)
+        {
+            var position = CameraManager.CurrentCamera.ViewportToWorldPoint(viewportPosition);
+            position.z = 0;
+            transform.position = position;
+        }
+
+        public void SetRotation(Vector3 eulerAngles)
+        {
+            transform.rotation = Quaternion.Euler(eulerAngles);
+        }
+
         private void ReturnToPool()
         {
             PoolManager.Instance?.ReturnFx(this);

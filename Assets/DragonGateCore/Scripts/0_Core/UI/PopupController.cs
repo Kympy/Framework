@@ -112,6 +112,13 @@ namespace DragonGate
             return Show(key, viewState) as T;
         }
 
+        public void Hide(string key)
+        {
+            if (!_keyToType.TryGetValue(key, out var type)) return;
+            var popup = FindActivePopup(type);
+            if (popup != null) Hide(popup);
+        }
+
         public void Hide(PopupCore popup)
         {
             if (popup == null) return;
@@ -169,6 +176,8 @@ namespace DragonGate
             if (popup is IViewState<TViewState> stateView)
                 stateView.SetViewState(in viewState);
         }
+
+        public bool HasKey(string key) => _keyToType.ContainsKey(key);
 
         public bool HasPopup()
         {

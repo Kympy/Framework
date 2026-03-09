@@ -9,6 +9,7 @@ namespace DragonGate
     [Serializable]
     public class ChoiceData
     {
+        public string Id;
         public LocalizedString ChoiceText;
         public string TargetNodeId;
         public bool   IsEnabled = true;

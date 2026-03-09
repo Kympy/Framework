@@ -53,6 +53,8 @@ namespace DragonGate
             
         }
 
+        public bool InputEnabled => gameObject.activeSelf;
+
         public virtual EInputResult UpdateInput(float deltaTime)
         {
             return EInputResult.Continue;

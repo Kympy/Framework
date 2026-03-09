@@ -28,7 +28,7 @@ namespace DragonGate
                 return;
             }
             _pending = true;
-            ShowLoadingScreen(sceneInfo.LoadingScreenReference.RuntimeKey?.ToString(), () => LoadSceneInternal(sceneInfo).Forget());
+            ShowLoadingScreen(sceneInfo.LoadingScreenReference?.RuntimeKey?.ToString(), () => LoadSceneInternal(sceneInfo).Forget());
         }
 
         private async UniTask LoadSceneInternal(SceneInfo sceneInfo)
@@ -50,7 +50,7 @@ namespace DragonGate
             _ = GetTokenSource();
             
             await Addressables.LoadSceneAsync(sceneKey, LoadSceneMode.Single);
-            if (IsValid() == false)
+            if (IsValidCancelToken() == false)
             {
                 DGDebug.Log("Scene Loading Canceled.", Color.deepPink);
                 return;
@@ -91,7 +91,7 @@ namespace DragonGate
             _tokenSource = null;
         }
 
-        public bool IsValid()
+        public bool IsValidCancelToken()
         {
             return _tokenSource is { IsCancellationRequested: false };
         }

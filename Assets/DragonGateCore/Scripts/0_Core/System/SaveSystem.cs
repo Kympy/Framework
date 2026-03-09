@@ -82,6 +82,8 @@ namespace DragonGate
 
         /// <summary>저장 데이터가 전혀 없으면 true</summary>
         public bool IsFirstPlay() => LoadRegistry().SlotIndices.Count == 0;
+        // 저장데이터 유무와 별개로 이번 게임이 새 게임인지 (슬롯 할당이 없는지)
+        public bool IsNewGame() => CurrentSlot == null;
 
         /// <summary>가장 최근에 저장한 슬롯. 없으면 null. (이어하기 버튼용)</summary>
         public TSlot GetLastSavedSlot()
@@ -119,6 +121,12 @@ namespace DragonGate
             if (CurrentSlot == null) return;
             CurrentSlot.LastPlayTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             ES3.Save(SlotMetaKey, CurrentSlot, GetSlotSettings(slotIndex));
+        }
+
+        // 마지막으로 저장한 슬롯으로 설정 - 이어하기 용
+        public void SetCurrentSlotLastSaved()
+        {
+            SetCurrentSlot(GetLastSavedSlot().Index);
         }
 
         /// <summary>새 게임 시작 시 호출. CurrentSlot을 null로 초기화.</summary>

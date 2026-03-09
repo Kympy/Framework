@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 using UnityEngine.UI;
 
 namespace DragonGate
@@ -50,6 +51,28 @@ namespace DragonGate
         #endregion
 
         #region Common
+
+        // AssetReference.RuntimeKey.ToString()으로 전달
+        public async UniTask Show(string key)
+        {
+            if (_panelController.HasKey(key)) { _panelController.Show(key); return; }
+            if (_popupController.HasKey(key)) { _popupController.Show(key); return; }
+
+            // 처음 보이는 키 - WarmUp(RefCount=0)으로 로드 후 프리팹 타입만 확인
+            var success = await AssetManager.Instance.WarmUp<GameObject>(key);
+            if (!success) { DGDebug.LogError($"UIManager.Show - Asset not found: {key}"); return; }
+
+            var prefab = AssetManager.Instance.PeekPrefab(key);
+            if (prefab.GetComponent<PanelCore>() != null) _panelController.Show(key);
+            else _popupController.Show(key);
+        }
+
+        public void Hide(string key)
+        {
+            if (_panelController.HasKey(key)) { _panelController.Hide(key); return; }
+            if (_popupController.HasKey(key)) { _popupController.Hide(key); return; }
+            DGDebug.LogWarning($"UIManager.Hide - Key not registered: {key}");
+        }
 
         public void Show(UICore uiCore)
         {
@@ -140,48 +163,67 @@ namespace DragonGate
         }
 
         private UIFade _uiFade;
-        private const string UIFadeKey = "UIFade";
+        private const string UIFadeKey = "UI/Common/UIFade";
 
-        public async UniTask FromBlackToTransparent(float duration)
+        public async UniTask FromBlackToTransparent(float duration, ICancelable cancelable = null)
         {
-            if (_uiFade == null)  CreateFade();
-            await _uiFade.FromBlackToTransparent(duration);
+            if (_uiFade == null)
+            {
+                if (CreateFade() == false) return;
+            }
+            await _uiFade.FromBlackToTransparent(duration, cancelable);
         }
 
-        public async UniTask FromTransparentToBlack(float duration)
+        public async UniTask FromTransparentToBlack(float duration, ICancelable cancelable = null)
         {
-            if (_uiFade == null) CreateFade();
-            await _uiFade.FromTransparentToBlack(duration);
+            if (_uiFade == null)
+            {
+                if (CreateFade() == false) return;
+            }
+            await _uiFade.FromTransparentToBlack(duration, cancelable);
         }
         
         public async UniTask FadeInOut(ICancelable cancelable, FadeData fadeData, float interval = 0f)
         {
-            await FadeIn(fadeData);
+            await FadeIn(fadeData, cancelable);
             if (interval > 0f)
                 await UniTaskHelper.WaitForSeconds(cancelable, interval);
-            await FadeOut(fadeData);
+            await FadeOut(fadeData, cancelable);
         }
 
-        public async UniTask FadeIn(FadeData fadeData)
+        public async UniTask FadeIn(FadeData fadeData, ICancelable cancelable = null)
         {
-            if (_uiFade == null) CreateFade();
-            _uiFade.SetStartColor(fadeData.InStartColor);
-            _uiFade.SetEndColor(fadeData.InEndColor);
-            await _uiFade.Play(fadeData.InDuration);
+            if (_uiFade == null)
+            {
+                if (CreateFade() == false) return;
+            }
+            _uiFade.SetInOutColor(fadeData.InStartColor, fadeData.InEndColor);
+            await _uiFade.Play(fadeData.InDuration, cancelable);
         }
 
-        public async UniTask FadeOut(FadeData fadeData)
+        public async UniTask FadeOut(FadeData fadeData, ICancelable cancelable = null)
         {
-            if (_uiFade == null) CreateFade();
-            _uiFade.SetStartColor(fadeData.OutStartColor);
-            _uiFade.SetEndColor(fadeData.OutEndColor);
-            await _uiFade.Play(fadeData.OutDuration);
+            if (_uiFade == null)
+            {
+                if (CreateFade() == false) return;
+            }
+            _uiFade.SetInOutColor(fadeData.OutStartColor, fadeData.OutEndColor);
+            await _uiFade.Play(fadeData.OutDuration, cancelable);
         }
 
-        private void CreateFade()
+        private bool CreateFade()
         {
-            if (_uiFade != null) return;
-            _uiFade = AssetManager.Instance.GetAsset<UIFade>(UIFadeKey);
+            if (_uiFade != null) return true;
+            var loaded = Resources.Load<GameObject>(UIFadeKey);
+            if (loaded == null)
+            {
+                DGDebug.LogError("UI Fade Resource Not Found: " + UIFadeKey);
+                return false;
+            }
+            var created = Object.Instantiate(loaded);
+            _uiFade = created.GetComponent<UIFade>();
+            Object.DontDestroyOnLoad(created);
+            return true;
         }
 
         #endregion

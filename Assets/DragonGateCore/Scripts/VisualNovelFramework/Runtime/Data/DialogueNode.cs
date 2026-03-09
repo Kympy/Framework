@@ -12,14 +12,12 @@ namespace DragonGate
         // ── 식별 ────────────────────────────────
         public string         nodeId;
         public DialogueNodeType NodeType;
-
-        // 캐릭터 -> NodeType이 캐릭터인 경우만 사용
-        public DialogueCharacterAsset SpeakerCharacter;
+        
+        // 화자 이름
+        public LocalizedString SpeakerName;
         // ── 대화 내용 ───────────────────────────
         public LocalizedString DialogueText;
         public float TextSpeed = 0.1f;
-        /// <summary>Narration 전용: 캐릭터 없이 표시할 화자 이름.</summary>
-        public LocalizedString NarrationSpeakerName;
 
         // ── 분기 ────────────────────────────────
         /// <summary>선택지가 있을 때 사용. 비어있으면 nextNodeId로 자동 진행.</summary>
@@ -29,7 +27,7 @@ namespace DragonGate
         public string NextNodeId;
 
         // ── 챕터 이동 (ChapterEnd 전용) ─────────
-        public AssetReference NextChapter;
+        public AssetReferenceT<DialogueGraph> NextChapter;
 
         // ── 컨디션 (Condition 전용) ──────────────
         public List<DialogueCondition> Conditions = new List<DialogueCondition>();
@@ -53,8 +51,8 @@ namespace DragonGate
             NodeType == DialogueNodeType.Start ? "START" :
             NodeType == DialogueNodeType.ChapterEnd ? "CHAPTER END" :
             NodeType == DialogueNodeType.Condition ? "IF" :
-            NodeType == DialogueNodeType.Narration ? NarrationSpeakerName == null || NarrationSpeakerName.IsEmpty ? "NARRATION" : NarrationSpeakerName.TableEntryReference.ToString() :
-            NodeType == DialogueNodeType.Character ? SpeakerCharacter == null || SpeakerCharacter.GetName() == null ? "CHARACTER" : SpeakerCharacter.GetName() :
+            NodeType == DialogueNodeType.Narration ? SpeakerName == null || SpeakerName.IsEmpty ? "NARRATION" : SpeakerName.GetLocalizedString() :
+            NodeType == DialogueNodeType.Character ? SpeakerName == null || SpeakerName.IsEmpty ? "CHARACTER" : SpeakerName.GetLocalizedString() :
             "NODE TITLE";
     }
     

@@ -18,4 +18,5 @@ MonoBehaviour:
     m_SubObjectType: 
     m_SubObjectGUID: 
     m_EditorAssetChanged: 0
-  Locale: {fileID: 11400000, guid: 63cf65c8f93584214a60fb7aa84c0cbc, type: 2}
+  DefaultTextSpeed: 0.01
+  DefaultCharacterViewportPosition: {x: 0.2, y: 0.5}

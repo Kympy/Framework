@@ -93,6 +93,8 @@ namespace DragonGate
             }
         }
 
+        public bool HasKey(string key) => _entries.ContainsKey(key);
+
         private PanelEntry GetOrCreateEntry(string key)
         {
             if (_entries.TryGetValue(key, out var entry)) return entry;

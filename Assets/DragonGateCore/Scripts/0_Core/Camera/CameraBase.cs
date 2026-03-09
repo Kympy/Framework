@@ -59,7 +59,9 @@ namespace DragonGate
         }
 
         protected virtual void OnDestroy() { }
-        
+
+        public bool InputEnabled => gameObject.activeSelf;
+
         public EInputResult UpdateInput(float deltaTime)
         {
             if (_lockPosition) return EInputResult.Continue;

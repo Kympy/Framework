@@ -9,12 +9,16 @@ namespace DragonGate
 
         public static void EnableCamera(Camera camera)
         {
+            if (camera == null) return;
+            
             if (CurrentCamera != null)
             {
+                if (camera == CurrentCamera && camera.gameObject.activeSelf && camera.enabled) return;
                 CurrentCamera.gameObject.SetActive(false);
             }
             CurrentCamera = camera;
             CurrentCamera.gameObject.SetActive(true);
+            CurrentCamera.enabled = true;
         }
 
         public static void DisableCamera(Camera camera = null)

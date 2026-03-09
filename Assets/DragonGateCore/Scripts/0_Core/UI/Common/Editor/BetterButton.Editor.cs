@@ -1,4 +1,6 @@
 using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
 
 namespace DragonGate
 {
@@ -32,6 +34,39 @@ namespace DragonGate
             EditorGUILayout.PropertyField(_enterSound);
 
             serializedObject.ApplyModifiedProperties();
+        }
+        
+        // ── 씬에 LocalizedTMPUGUI 추가 메뉴 ───────────────────────
+        private const string PrefabAssetPath = "Assets/DragonGateCore/Resources/UI/Common/Editor/BetterButton.prefab";
+
+        [MenuItem("GameObject/UI (Custom)/Better Button", false, 10)]
+        private static void CreatePreset(MenuCommand menuCommand)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabAssetPath);
+            if (prefab == null)
+            {
+                DGDebug.LogError($"Cannot found prefab: {PrefabAssetPath}");
+                return;
+            }
+
+            PrefabStage prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+            GameObject  instance;
+
+            if (prefabStage != null)
+            {
+                instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, prefabStage.scene);
+                instance.transform.SetParent(prefabStage.prefabContentsRoot.transform, false);
+            }
+            else
+            {
+                instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                if (menuCommand.context is GameObject parent)
+                    GameObjectUtility.SetParentAndAlign(instance, parent);
+            }
+
+            PrefabUtility.UnpackPrefabInstance(instance, PrefabUnpackMode.Completely, InteractionMode.UserAction);
+            Undo.RegisterCreatedObjectUndo(instance, "CreatePreset_BetterButton");
+            Selection.activeGameObject = instance;
         }
     }
 }

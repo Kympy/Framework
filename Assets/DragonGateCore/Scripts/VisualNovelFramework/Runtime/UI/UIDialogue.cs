@@ -3,9 +3,12 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Events;
+using UnityEngine.InputSystem;
 
 namespace DragonGate
 {
@@ -13,7 +16,7 @@ namespace DragonGate
     /// 대화 UI를 담당하는 컴포넌트.
     /// Canvas 하위에 배치하고 Inspector에서 각 UI 요소를 연결.
     /// </summary>
-    public class UIDialogue : PanelCore
+    public class UIDialogue : PanelCore, IInputHandler
     {
         // ── Inspector 연결 ──────────────────────────────────────────────
 
@@ -45,8 +48,11 @@ namespace DragonGate
         
         private bool      _isTyping;
         private string    _fullText;
+        private float _typingProgress = 0;
         private DialogueNode _currentNode;
         private List<ChoiceData> _choices = new List<ChoiceData>();
+
+        public bool InputEnabled => gameObject.activeSelf;
 
         private CancellationTokenSource _textTokenSource;
 
@@ -56,6 +62,18 @@ namespace DragonGate
         {
             _nextButton?.OnLeftUp.AddListener(OnAdvanceClicked);
             _choiceScrollView.Init(GetChoiceCount, OnUpdateChoices, OnInitChoices);
+        }
+
+        public override void SetVisible(UnityAction onVisible = null)
+        {
+            base.SetVisible(onVisible);
+            InputManager.AddInput(this);
+        }
+
+        protected override void OnHidden()
+        {
+            base.OnHidden();
+            InputManager.RemoveInput(this);
         }
 
         /// <summary>DialogueRunner에서 호출. 노드 내용을 UI에 표시.</summary>
@@ -74,24 +92,19 @@ namespace DragonGate
             if (_useSpeakerNameBackgroundColor && _speakerNameBackground != null)
                 _speakerNameBackground.color = GetNodeColor(node.NodeType);
 
-            if (node.NodeType == DialogueNodeType.Narration)
+            if (node.NodeType == DialogueNodeType.Character || node.NodeType == DialogueNodeType.Narration)
             {
-                // 내레이션은 화자 이름이 없을 수도 있음.
-                if (node.NarrationSpeakerName == null || node.NarrationSpeakerName.IsEmpty)
+                // 화자 이름이 없을 수도 있음.
+                if (node.SpeakerName == null || node.SpeakerName.IsEmpty)
                 {
                     _speakerNameText.Clear();
                     _speakerNameBackground?.SetActive(false);
                 }
                 else
                 {
-                    _speakerNameText.SetCopy(node.NarrationSpeakerName);
+                    _speakerNameText.SetCopy(node.SpeakerName);
                     _speakerNameBackground?.SetActive(true);
                 }
-            }
-            else if (node.NodeType == DialogueNodeType.Character)
-            {
-                _speakerNameText.SetCopy(node.SpeakerCharacter.Name);
-                _speakerNameBackground?.SetActive(true);
             }
             else
             {
@@ -104,16 +117,27 @@ namespace DragonGate
             Typewriter(_fullText, node).Forget();
         }
 
+        public void ShakeText(Vector2 strength, float duration)
+        {
+            _dialogueBodyText.transform.DOShakePosition(duration, strength);
+        }
+
         // ── 타이프라이터 ─────────────────────────────────────────────────
 
         private async UniTask Typewriter(string text, DialogueNode node)
         {
             _isTyping             = true;
-            _dialogueBodyText.text = "";
+            _dialogueBodyText.Clear();
+            _typingProgress = 0;
             EnsureTextTokenSource();
+
+            int i = 0;
+            int length = text.Length;
             foreach (char c in text)
             {
+                i++;
                 _dialogueBodyText.text += c;
+                _typingProgress = i / (float)length;
                 await UniTask.WaitForSeconds(node.TextSpeed, cancellationToken: _textTokenSource.Token);
             }
             
@@ -134,6 +158,7 @@ namespace DragonGate
             _textTokenSource?.Cancel();
             _textTokenSource?.Dispose();
             _textTokenSource = null;
+            _typingProgress = 0;
             _isTyping = false;
         }
 
@@ -183,15 +208,18 @@ namespace DragonGate
 
         private void OnAdvanceClicked()
         {
-            if (_isTyping && autoSkipOnClick)
-            {
-                // 타이핑 스킵 → 전체 텍스트 즉시 표시
-                CancelTypeWriter();
-                _dialogueBodyText.text = _fullText;
-                OnTextComplete(_currentNode);
-                return;
-            }
+            _nextButton.gameObject.SetActive(false);
             onAdvance?.Invoke();
+        }
+
+        private void OnSkipClicked()
+        {
+            if (_isTyping == false || autoSkipOnClick == false) return;
+            if (_typingProgress < 0.1f) return;
+            // 타이핑 스킵 → 전체 텍스트 즉시 표시
+            CancelTypeWriter();
+            _dialogueBodyText.SetText(_fullText);
+            OnTextComplete(_currentNode);
         }
 
         private void OnChoiceClicked(ChoiceData choice)
@@ -215,5 +243,15 @@ namespace DragonGate
             DialogueNodeType.Narration => _colorNarration,
             _                          => Color.gray,
         };
+
+        public EInputResult UpdateInput(float deltaTime)
+        {
+            if (Mouse.current.leftButton.wasPressedThisFrame)
+            {
+                OnSkipClicked();
+                return EInputResult.Break;
+            }
+            return EInputResult.Continue;
+        }
     }
 }

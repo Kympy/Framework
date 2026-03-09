@@ -11,7 +11,8 @@ namespace DragonGate
     {
         private static readonly int InteractableHash = Animator.StringToHash("Interactable");
         public bool IsPending { get; private set; } = false; // 쿨타임과 별개의 펜딩.
-        public TextMeshProUGUI ButtonText => _buttonText;
+        public TextMeshProUGUI ButtonText => _buttonText ??= GetComponentInChildren<TextMeshProUGUI>();
+        public LocalizedTextMeshProUGUI LocalizedButtonText => ButtonText as LocalizedTextMeshProUGUI;
         public Vector2 LastDownPosition { get; protected set; }
 
         public UnityEvent OnLeftClick  => _onLeftClick  ??= new UnityEvent();

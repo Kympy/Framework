@@ -35,6 +35,16 @@ namespace DragonGate
             return true;
         }
 
+        /// <summary>
+        /// RefCount 변경 없이 캐시된 프리팹을 반환. WarmUp 후에 사용.
+        /// </summary>
+        public GameObject PeekPrefab(string key)
+        {
+            if (_assetCache.TryGetValue(key, out var info) && info is AssetInfo<GameObject> goInfo)
+                return goInfo.Handle.Result;
+            return null;
+        }
+
         private T LoadAsset<T>(string key) where T : Object
         {
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo) == false)

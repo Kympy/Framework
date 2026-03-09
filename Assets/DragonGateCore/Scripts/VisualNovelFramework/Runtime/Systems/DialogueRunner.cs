@@ -1,8 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
-using DragonGate;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 
@@ -12,10 +11,8 @@ namespace DragonGate
     /// 대화 흐름을 관리하는 핵심 런타임 컴포넌트.
     /// DialogueGraph를 받아 노드를 순회하며 UI·이벤트를 제어한다.
     /// </summary>
-    public class DialogueRunner : PlacedMonoBehaviourSingleton<DialogueRunner>, ICancelable
+    public class DialogueRunner : PlacedMonoBehaviourSingleton<DialogueRunner>
     {
-        [Header("Start")]
-        [SerializeField] private DialogueGraph _startingDialogue;
         [Header("References")]
         [SerializeField] private Camera _camera;
         [SerializeField] private SpriteRenderer _background;
@@ -35,14 +32,19 @@ namespace DragonGate
         /// 등록하지 않으면 Condition 노드는 항상 false 로 평가됩니다.
         /// </summary>
         public IConditionEvaluator ConditionEvaluator { get; set; }
+        public AssetReferenceT<DialogueGraph> CurrentGraphReference => _currentGraphReference;
+        public string CurrentNodeId => _currentNode?.nodeId;
 
         // ── 상태 ────────────────────────────────────────────────────────
+        private AssetReferenceT<DialogueGraph> _currentGraphReference;
         private DialogueGraph _currentGraph;
         private DialogueNode  _currentNode;
+        private string _loadTargetNodeId;
+        private string _currentBackgroundKey;
         public  bool          IsRunning { get; private set; }
         
         private EventExecutor _eventExecutor;
-        private DialogueCharacterManager _characterManager = new();
+        private DialogueCharacterManager _characterManager;
         private UIDialogue _uiDialogue;
         private CancellationTokenSource _tokenSource;
 
@@ -50,6 +52,7 @@ namespace DragonGate
         {
             base.Awake();
             _eventExecutor = new EventExecutor(this);
+            _characterManager = new DialogueCharacterManager(this);
             
             if (_camera == null)
             {
@@ -60,19 +63,46 @@ namespace DragonGate
                 }
             }
             CameraManager.EnableCamera(_camera);
+            transform.position = Vector3.zero;
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            if (_currentGraph != null)
+            {
+                AssetManager.Instance.ReleaseAsset(_currentGraph);
+                _currentGraph = null;
+            }
         }
 
         // ── 공개 API ────────────────────────────────────────────────────
 
-        /// <summary>그래프의 startNode부터 대화 시작.</summary>
-        public void StartDialogue(DialogueGraph graph)
+        public async UniTask PreLoad()
         {
-            if (graph == null) { Debug.LogError("[VNFramework] graph is null"); return; }
+            var graph = await AssetManager.Instance.GetAssetAsync<DialogueGraph>(_currentGraphReference.RuntimeKey.ToString());
             _currentGraph = graph;
-            var start = graph.GetStartNode();
-            if (start == null) { Debug.LogError("[VNFramework] No start node in graph!"); return; }
-            IsRunning = true;
-            EnterNode(start);
+            _currentNode = _loadTargetNodeId == null ? graph.GetStartNode() : graph.GetNode(_loadTargetNodeId);
+        }
+
+        public void SetPreLoadTarget(AssetReferenceT<DialogueGraph> graphReference, string nodeId)
+        {
+            _currentGraphReference = graphReference;
+            _loadTargetNodeId = nodeId;
+        }
+        
+        // 로드된 걸 바로 실행
+        public void StartDialogue(DialogueSnapshotData snapshot)
+        {
+            StartDialogue(_currentGraph, _currentNode.nodeId);
+            RestoreSnapshot(snapshot);
+        }
+
+        public void StartDialogue(AssetReferenceT<DialogueGraph> graphReference, string nodeId)
+        {
+            var graph = AssetManager.Instance.GetAsset<DialogueGraph>(graphReference.RuntimeKey.ToString());
+            _currentGraphReference = graphReference;
+            StartDialogue(graph, nodeId);
         }
 
         /// <summary>특정 노드 ID부터 대화 시작.</summary>
@@ -80,30 +110,68 @@ namespace DragonGate
         {
             if (graph == null) return;
             _currentGraph = graph;
-            var node = graph.GetNode(nodeId);
-            if (node == null) { Debug.LogError($"[VNFramework] Node '{nodeId}' not found"); return; }
+            
+            DialogueNode targetNode = null;
+            targetNode = nodeId == null ? graph.GetStartNode() : graph.GetNode(nodeId);
+            if (targetNode == null) { Debug.LogError($"[VNFramework] Node '{nodeId}' not found"); return; }
+            
+            CancelToken();
+            DGDebug.Log($"Start Dialogue. {graph.name}", Color.gold);
             IsRunning = true;
-            EnterNode(node);
+            EnterNode(targetNode).Forget();
+        }
+        
+        private void EndDialogue()
+        {
+            DGDebug.Log($"End Dialogue.", Color.gold);
+            IsRunning = false;
+            HideDialogueUI();
+            OnDialogueEnd?.Invoke();
         }
 
-        public void StopDialogue()
+        public void CancelDialogue()
         {
+            DGDebug.Log($"Cancel Dialogue.", Color.gold);
+            CancelToken();
             IsRunning = false;
             HideDialogueUI();
             _currentNode  = null;
             _currentGraph = null;
         }
+        
+        private void OnChapterEnd(AssetReferenceT<DialogueGraph> nextChapterReference)
+        {
+            if (nextChapterReference == null || nextChapterReference.RuntimeKeyIsValid() == false)
+            {
+                DGDebug.Log("Next Chapter Reference Null", Color.crimson);
+                return;
+            }
+            // 여기서 이제 추후에 필요한 챕터 사이간의 로딩이나 delay 연출을 보여줄 수 있음.
+            if (_currentGraph != null)
+            {
+                AssetManager.Instance.ReleaseAsset(_currentGraph);
+                _currentGraph = null;
+            }
+            StartDialogue(nextChapterReference, null);
+        }
 
         // ── 내부 노드 처리 ───────────────────────────────────────────────
 
-        private void EnterNode(DialogueNode node)
+        private async UniTask EnterNode(DialogueNode node)
         {
             _currentNode = node;
             OnNodeEnter?.Invoke(node);
+            DGDebug.Log($"Enter Node : {node.nodeId}", Color.darkSalmon);
 
             // Enter 이벤트 실행
+            GetTokenSource();
             if (_eventExecutor != null && node.EnterEvents?.Count > 0)
-                _eventExecutor.ExecuteEvents(node.EnterEvents).Forget();
+                await _eventExecutor.ExecuteEvents(node.EnterEvents);
+            if (IsValidCancelToken() == false)
+            {
+                DGDebug.Log("Enter Node Canceled.", Color.orangeRed);
+                return;
+            }
 
             switch (node.NodeType)
             {
@@ -113,7 +181,7 @@ namespace DragonGate
                     break;
 
                 case DialogueNodeType.ChapterEnd:
-                    ExitNode(node);
+                    await ExitNode(node);
                     IsRunning = false;
                     HideDialogueUI();
                     HideAllCharacter();
@@ -122,7 +190,7 @@ namespace DragonGate
                     break;
 
                 case DialogueNodeType.Condition:
-                    ExitNode(node);
+                    await ExitNode(node);
                     if (ConditionEvaluator == null)
                         Debug.LogWarning("[VNFramework] Condition 노드에 도달했지만 IConditionEvaluator 가 등록되지 않았습니다. True 로 처리합니다.");
                     bool conditionResult = ConditionEvaluator?.Evaluate(node.Conditions) ?? true;
@@ -132,8 +200,8 @@ namespace DragonGate
                         var nextNode = _currentGraph.GetNode(nextNodeId);
                         if (nextNode != null)
                         {
-                            EnterNode(nextNode);
-                            return;
+                            EnterNode(nextNode).Forget();
+                            break;
                         }
                     }
                     else
@@ -145,24 +213,27 @@ namespace DragonGate
 
                 default:
                     ShowDialogueUI();
-                    _uiDialogue?.DisplayNode(node, HandleChoiceSelected, HandleAdvance);
+                    _uiDialogue?.DisplayNode(node,
+                        choice => HandleChoiceSelected(choice).Forget(),
+                        () => HandleAdvance().Forget());
                     break;
             }
         }
 
-        private void ExitNode(DialogueNode node)
+        private async UniTask ExitNode(DialogueNode node)
         {
+            DGDebug.Log($"Exit Node : {node.nodeId}", Color.darkSalmon);
             OnNodeExit?.Invoke(node);
             if (_eventExecutor != null && node.ExitEvents?.Count > 0)
-                _eventExecutor.ExecuteEvents(node.ExitEvents).Forget();
+                await _eventExecutor.ExecuteEvents(node.ExitEvents);
         }
 
         // ── UI 콜백 ─────────────────────────────────────────────────────
 
-        private void HandleAdvance()
+        private async UniTask HandleAdvance()
         {
             if (_currentNode == null) return;
-            ExitNode(_currentNode);
+            await ExitNode(_currentNode);
 
             if (string.IsNullOrEmpty(_currentNode.NextNodeId))
             {
@@ -171,14 +242,18 @@ namespace DragonGate
             }
 
             var next = _currentGraph.GetNode(_currentNode.NextNodeId);
-            if (next == null) { EndDialogue(); return; }
-            EnterNode(next);
+            if (next == null)
+            {
+                EndDialogue();
+                return;
+            }
+            await EnterNode(next);
         }
 
-        private void HandleChoiceSelected(ChoiceData choice)
+        private async UniTask HandleChoiceSelected(ChoiceData choice)
         {
             if (choice == null) return;
-            ExitNode(_currentNode);
+            await ExitNode(_currentNode);
 
             if (string.IsNullOrEmpty(choice.TargetNodeId))
             {
@@ -194,27 +269,29 @@ namespace DragonGate
                 return;
             }
 
-            EnterNode(next);
+            await EnterNode(next);
         }
 
         private void AdvanceToNextNode()
         {
             if (string.IsNullOrEmpty(_currentNode.NextNodeId)) { EndDialogue(); return; }
             var next = _currentGraph.GetNode(_currentNode.NextNodeId);
-            if (next != null) EnterNode(next);
-            else EndDialogue();
+            if (next != null)
+            {
+                EnterNode(next).Forget();
+            }
+            else
+            {
+                EndDialogue();
+            }
         }
 
-        private void EndDialogue()
+        private void CreateUIDialogue()
         {
-            IsRunning = false;
-            HideDialogueUI();
-            OnDialogueEnd?.Invoke();
-        }
-
-        private void OnChapterEnd(AssetReference nextChapterReference)
-        {
-            
+            if (_uiDialogue == null)
+            {
+                _uiDialogue = UIManager.Instance.ShowPanel<UIDialogue>(_dialogueUIPrefab.RuntimeKey.ToString());
+            }
         }
 
         private void ShowDialogueUI()
@@ -231,6 +308,7 @@ namespace DragonGate
         {
             if (_uiDialogue == null) return;
             UIManager.Instance.HidePanel(_uiDialogue);
+            _uiDialogue = null;
         }
 
         public void HideAllCharacter()
@@ -238,14 +316,14 @@ namespace DragonGate
             _characterManager.HideAllCharacter();
         }
 
-        public void HideCharacter(int id)
+        public void HideCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef)
         {
-            _characterManager.HideCharacter(id);
+            _characterManager.HideCharacter(assetRef);
         }
 
-        public void ShowCharacter(DialogueCharacterAsset asset, Vector2 position, float scale = 1f)
+        public void ShowCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, float scale = 1f)
         {
-            if (asset.IsValidCharacterAsset == false)
+            if (assetRef == null || assetRef.RuntimeKeyIsValid() == false)
             {
                 return;
             }
@@ -254,24 +332,69 @@ namespace DragonGate
             {
                 DGDebug.Log("Character Scale is less or equal to zero!!", Color.red);
             }
-            _characterManager.ShowCharacter(asset, position, scale);
+            _characterManager.ShowCharacter(assetRef, position, scale);
         }
 
-        public void PlayCharacterAnimation(int characterId, string triggerName)
+        public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease ease, float duration)
         {
-            _characterManager.PlayAnimation(characterId, triggerName);
+            if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
+            if (ease == Ease.Unset)
+                _characterManager.TeleportCharacter(assetRef, position);
+            else
+                await _characterManager.MoveCharacter(assetRef, position, ease, duration);
+        }
+
+        public void PlayCharacterAnimation(AssetReferenceT<DialogueCharacterAsset> assetRef, string triggerName)
+        {
+            _characterManager.PlayAnimation(assetRef, triggerName);
         }
 
         public void SetBackground(string key)
         {
+            _currentBackgroundKey = key;
             _background.SetSprite(key);
             CameraManager.CurrentCamera.FitCameraToSpriteRenderer(_background);
         }
 
-        private DialogueCharacter GetCharacter(AssetReference reference)
+        public DialogueSnapshotData CaptureSnapshot()
         {
-            var character = PoolManager.Instance.GetComponent<DialogueCharacter>(reference.RuntimeKey.ToString());
-            return character;
+            return new DialogueSnapshotData
+            {
+                BackgroundSpriteKey = _currentBackgroundKey,
+                BgmKey = SoundManager.Instance.CurrentBgmKey,
+                BgmVolume = SoundManager.Instance.GetBgmGroupVolume(),
+                Characters = _characterManager.GetSnapshots(),
+            };
+        }
+
+        public void RestoreSnapshot(DialogueSnapshotData snapshot)
+        {
+            if (!string.IsNullOrEmpty(snapshot.BackgroundSpriteKey))
+                SetBackground(snapshot.BackgroundSpriteKey);
+
+            if (!string.IsNullOrEmpty(snapshot.BgmKey))
+                SoundManager.Instance.PlayBGM(snapshot.BgmKey, snapshot.BgmVolume).Forget();
+
+            if (snapshot.Characters != null)
+            {
+                foreach (var c in snapshot.Characters)
+                    ShowCharacter(c.CharacterAsset, c.Position, c.Scale);
+            }
+
+        }
+
+        public void ShakeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 strength, float duration)
+        {
+            _characterManager.ShakeCharacter(assetRef, strength, duration);
+        }
+
+        public void ShakeText(Vector2 strength, float duration)
+        {
+            if (_uiDialogue == null)
+            {
+                ShowDialogueUI();
+            }
+            _uiDialogue.ShakeText(strength, duration);
         }
     }
 }

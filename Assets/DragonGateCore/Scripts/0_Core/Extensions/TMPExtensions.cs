@@ -85,5 +85,16 @@ namespace DragonGate
         {
             textComponent.SetText($"<sprite name={spriteName}>");
         }
+
+        // 0 ~ 100으로 percent 받음. 물론 100넘을수도있음. 백분율로 받는다는 얘기임.
+        public static void SetPercent(this TMP_Text textComponent, int percent)
+        {
+            textComponent.SetText("{0}%", percent);
+        }
+
+        public static void SetFraction(this TMP_Text textComponent, int current, int max)
+        {
+            textComponent.SetText("{0}/{1}", current, max);
+        }
     }
 }

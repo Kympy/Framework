@@ -179,6 +179,12 @@ namespace DragonGate
 
         public bool HasKey(string key) => _keyToType.ContainsKey(key);
 
+        public bool IsVisible(string key)
+        {
+            if (!_keyToType.TryGetValue(key, out var type)) return false;
+            return FindActivePopup(type) != null;
+        }
+
         public bool HasPopup()
         {
             return _activePopups.Count > 0;

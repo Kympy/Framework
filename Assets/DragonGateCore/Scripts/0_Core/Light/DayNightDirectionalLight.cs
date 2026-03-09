@@ -8,7 +8,8 @@ namespace DragonGate
     {
         [SerializeField] private Gradient colorOverDay;
         [SerializeField] private AnimationCurve intensityOverDay;
-        
+
+        private const float StartRotation = -90f;
         private Light _directionalLight;
 
         private void Awake()
@@ -23,6 +24,10 @@ namespace DragonGate
             var intensity = intensityOverDay.Evaluate(normalizedTime);
             _directionalLight.color = color;
             _directionalLight.intensity = intensity;
+
+            float sunAngle = normalizedTime * 360f - 90f;
+
+            transform.rotation = Quaternion.Euler(sunAngle, 170f, 0);
         }
 
         public void UpdateLight(GameTime gameTime)

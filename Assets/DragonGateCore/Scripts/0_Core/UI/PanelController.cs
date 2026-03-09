@@ -95,6 +95,12 @@ namespace DragonGate
 
         public bool HasKey(string key) => _entries.ContainsKey(key);
 
+        public bool IsVisible(string key)
+        {
+            if (!_entries.TryGetValue(key, out var entry)) return false;
+            return _currentPanel == entry;
+        }
+
         private PanelEntry GetOrCreateEntry(string key)
         {
             if (_entries.TryGetValue(key, out var entry)) return entry;

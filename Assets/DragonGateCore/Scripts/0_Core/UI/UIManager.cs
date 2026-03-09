@@ -74,6 +74,13 @@ namespace DragonGate
             DGDebug.LogWarning($"UIManager.Hide - Key not registered: {key}");
         }
 
+        public bool IsVisible(string key)
+        {
+            if (_panelController.IsVisible(key)) return true;
+            if (_popupController.IsVisible(key)) return true;
+            return false;
+        }
+
         public void Show(UICore uiCore)
         {
             if (uiCore is PanelCore panelCore)

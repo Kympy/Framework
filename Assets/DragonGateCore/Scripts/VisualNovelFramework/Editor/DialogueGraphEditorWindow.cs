@@ -272,7 +272,7 @@ namespace DragonGate.Editor
         private void LoadGraph(DialogueGraph g)
         {
             graph = g;
-            _selectedNodeId = null;
+            SelectNode(null);
             _graphSO = g != null ? new SerializedObject(g) : null;
             Repaint();
         }
@@ -1424,7 +1424,7 @@ namespace DragonGate.Editor
                 var node = graph.nodes[nodeIndex];
                 if (GetNodeRect(node).Contains(mousePosition))
                 {
-                    _selectedNodeId = node.nodeId;
+                    SelectNode(node);
                     OnClickNode(node);
                     isDraggingNode = true;
                     GUI.changed = true;
@@ -1433,7 +1433,7 @@ namespace DragonGate.Editor
                 }
             }
 
-            _selectedNodeId = null;
+            SelectNode(null);
             isDraggingCanvas = true;
             GUI.changed = true;
         }
@@ -1517,7 +1517,10 @@ namespace DragonGate.Editor
                 if (EditorUtility.DisplayDialog("노드 삭제", $"'{node.NodeTitle}' 노드를 삭제할까요?", "삭제", "취소"))
                 {
                     graph.DeleteNode(node.nodeId);
-                    if (_selectedNodeId == node.nodeId) _selectedNodeId = null;
+                    if (_selectedNodeId == node.nodeId)
+                    {
+                        SelectNode(null);
+                    }
                 }
             });
             m.ShowAsContext();
@@ -1541,7 +1544,7 @@ namespace DragonGate.Editor
             if (graph == null) return;
             var pos = new Vector2(200 - scrollOffset.x, 150 - scrollOffset.y);
             var createdNode = CreateNode(type, pos);
-            _selectedNodeId = createdNode?.nodeId;
+            SelectNode(createdNode);
             CreateLocalizationEntries(createdNode);
         }
 
@@ -1549,7 +1552,7 @@ namespace DragonGate.Editor
         {
             if (graph == null) return;
             var createdNode = CreateNode(type, worldPos);
-            _selectedNodeId = createdNode?.nodeId;
+            SelectNode(createdNode);
             CreateLocalizationEntries(createdNode);
         }
 
@@ -1601,7 +1604,7 @@ namespace DragonGate.Editor
             CloneChoice(newNode, source);
 
             graph.nodes.Add(newNode);
-            _selectedNodeId = newNode.nodeId;
+            SelectNode(newNode);
 
             // 로컬라이제이션 엔트리 새로 생성 (GUID가 달라졌으므로)
             CreateLocalizationEntries(newNode);
@@ -1709,6 +1712,18 @@ namespace DragonGate.Editor
                 StartRunner(graph, node);
         }
 
+        private void SelectNode(DialogueNode node)
+        {
+            // 텍스트 포커스 초기화
+            GUIUtility.keyboardControl = 0;
+            EditorGUIUtility.editingTextField = false;
+            
+            if (node == null) return;
+            
+            _selectedNodeId = node.nodeId;
+            GUI.changed = true;
+        }
+
         private void DeleteSelectedNode()
         {
             var node = SelectedNode;
@@ -1717,7 +1732,7 @@ namespace DragonGate.Editor
             {
                 RemoveLocalizationEntries(node);
                 graph.DeleteNode(node.nodeId);
-                _selectedNodeId = null;
+                SelectNode(null);
             }
         }
 

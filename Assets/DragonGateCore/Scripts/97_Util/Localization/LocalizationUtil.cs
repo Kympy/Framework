@@ -1,10 +1,9 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.Localization.Settings;
 
 namespace DragonGate
 {
-    public class LocalizationUtil
+    public partial class LocalizationUtil
     {
         public static string GetRandomKey(string tableCollectionName)
         {

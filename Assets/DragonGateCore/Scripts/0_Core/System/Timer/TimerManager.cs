@@ -177,6 +177,13 @@ namespace DragonGate
             }
         }
 
+        public static void ClearAll()
+        {
+            _timersToAdd.Clear();
+            _activeTimers.Clear();
+            _timersToRemove.Clear();
+        }
+
         public static void UpdateTimers(float deltaTime, float unscaledDeltaTime)
         {
             // 대기 중인 타이머를 activeTimers에 추가

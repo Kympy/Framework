@@ -77,6 +77,7 @@ namespace DragonGate
 
             public bool TryReturn(Component component)
             {
+                if (GameStarter.IsApplicationQuitting) return false;
                 if (component is T typedComponent)
                 {
                     Return(typedComponent);

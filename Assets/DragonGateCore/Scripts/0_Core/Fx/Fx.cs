@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace DragonGate
 {
-    public class Fx : MonoBehaviour
+    public class Fx : MonoBehaviour, IPoolable
     {
         // 모든 배열을 들고 있을 필요 없이, 메인 시스템 하나만 참조
         [SerializeField] protected ParticleSystem _mainParticleSystem;
@@ -18,6 +18,11 @@ namespace DragonGate
             {
                 _mainParticleSystem = GetComponentInChildren<ParticleSystem>();
             }
+
+            _mainParticleSystem.SetSimulationSpeed(GameLoop.GameTimeScale);
+
+            GameLoop.OnGameTimeScaleChanged -= _mainParticleSystem.SetSimulationSpeed;
+            GameLoop.OnGameTimeScaleChanged += _mainParticleSystem.SetSimulationSpeed;
         }
 
         private void Update()
@@ -46,6 +51,17 @@ namespace DragonGate
         private void ReturnToPool()
         {
             PoolManager.Instance?.ReturnFx(this);
+        }
+
+        public void OnGet()
+        {
+            var main = _mainParticleSystem.main;
+            main.simulationSpeed = GameLoop.GameTimeScale;
+        }
+
+        public void OnReturn()
+        {
+            
         }
     }
 }

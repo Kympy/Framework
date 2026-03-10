@@ -137,12 +137,22 @@ namespace DragonGate
         }
         #endregion
 
+
+        public static float GameTimeScale { get; private set; } = 1f;
+        public static Action<float> OnGameTimeScaleChanged;
+        
         private readonly Channel<IGameUpdate> _update = new Channel<IGameUpdate>();
         private readonly Channel<IGameLateUpdate> _late = new Channel<IGameLateUpdate>();
         private readonly Channel<IGameFixedUpdate> _fixed = new Channel<IGameFixedUpdate>();
 
         private int _frameCount;
         private int _sweepInterval = 60; // 60프레임마다 한번 청소
+
+        public static void SetGameTimeScale(float gameTimeScale)
+        {
+            GameTimeScale = gameTimeScale;
+            OnGameTimeScaleChanged?.Invoke(gameTimeScale);
+        }
 
         #region Unity lifecycle
 

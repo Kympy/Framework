@@ -136,6 +136,11 @@ namespace DragonGate
             _scheduledEvents.Remove(handle);
         }
 
+        public void RemoveAllEvents()
+        {
+            _scheduledEvents.Clear();
+        }
+
         private long ToIntervalTick(int hours = 0, int minutes = 0, int seconds = 0)
         {
             long totalMinutes = (long)hours * GameTime.MinutesPerHour + minutes;

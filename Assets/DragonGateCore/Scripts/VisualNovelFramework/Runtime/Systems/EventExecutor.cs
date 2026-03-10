@@ -44,8 +44,8 @@ namespace DragonGate
                 // ── 배경 ──────────────────────────────────
                 case DialogueEventType.SetBackground:
                     if (dialogueEvent.Background == null || dialogueEvent.Background.RuntimeKeyIsValid() == false) break;
-                    DGDebug.Log($"Set Background : {dialogueEvent.Background.RuntimeKey}", Color.aquamarine);
-                    _runner.SetBackground(dialogueEvent.Background.RuntimeKey.ToString());
+                    DGDebug.Log($"Set Background : {dialogueEvent.Background.RuntimeKey}, Duration : {dialogueEvent.Duration}", Color.aquamarine);
+                    await _runner.SetBackground(dialogueEvent.Background.RuntimeKey.ToString(), dialogueEvent.Duration);
                     break;
 
                 // ── 캐릭터 스프라이트 ─────────────────────

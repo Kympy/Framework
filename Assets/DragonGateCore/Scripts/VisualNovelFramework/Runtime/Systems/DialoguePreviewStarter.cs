@@ -17,11 +17,10 @@ namespace DragonGate
         {
             await base.PreLoad();
 
-            var settings = Resources.Load<DialoguePreviewSettings>("DialoguePreviewSettings");
+            var settings = Resources.Load<DialoguePreviewSettings>("DialogueGraphSettings");
             if (settings == null)
             {
-                DGDebug.LogWarning("[DialoguePreviewStarter] DialoguePreviewSettings not found in Resources. Creating DialogueRunner without prefab.");
-                new GameObject("DialogueRunner").AddComponent<DialogueRunner>();
+                DGDebug.LogError("[DialoguePreviewStarter] DialogueGraphSettings not found in Resources.");
                 return;
             }
 

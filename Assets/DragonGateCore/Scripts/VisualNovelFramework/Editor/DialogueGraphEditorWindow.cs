@@ -100,8 +100,8 @@ namespace DragonGate.Editor
         private bool _showSettings;
         private float _inspectorWidth = 310f;
         private bool _isDraggingSplitter;
-        private SerializedObject _previewSettingsSO;
-        private const string PREVIEW_SETTINGS_RESOURCE_PATH = "Assets/DragonGateCore/VisualNovelFramework/Resources/DialoguePreviewSettings.asset";
+        private SerializedObject _graphSettingsSO;
+        private const string GRAPH_SETTINGS_RESOURCE_PATH = "Assets/DragonGateCore/VisualNovelFramework/Resources/DialogueGraphSettings.asset";
 
         // ── 캐시된 GUIContent (static: 재생성 불필요) ────────────────
         private static readonly GUIContent s_conditionTypeLabel = new GUIContent("조건 타입");
@@ -111,6 +111,8 @@ namespace DragonGate.Editor
         private static readonly GUIContent s_speakerNameLabel = new GUIContent("화자 이름");
         private static readonly GUIContent s_dialogueTextLabel = new GUIContent("대화 텍스트");
         private static readonly GUIContent s_dialogueTextSpeedLabel = new GUIContent("텍스트 속도");
+        private static readonly GUIContent s_dialogueTextSizeLabel = new GUIContent("텍스트 크기");
+        private static readonly GUIContent s_dialogueTextColorLabel = new GUIContent("텍스트 색상");
         private static readonly GUIContent s_nextChapterLabel = new GUIContent("다음 챕터");
         private static readonly GUIContent s_choiceTextLabel = new GUIContent("텍스트");
         private static readonly GUIContent s_isEnabledLabel = new GUIContent("활성화");
@@ -210,7 +212,7 @@ namespace DragonGate.Editor
         private static void StartRunner(DialogueGraph graph, DialogueNode node)
         {
             if (DialogueRunner.HasInstance == false) return;
-            DialogueRunner.Instance.StartDialogue(graph, node.nodeId);
+            DialogueRunner.Instance.StartGraph(graph, node.nodeId);
         }
 
         private void EnsureStyles()
@@ -767,7 +769,7 @@ namespace DragonGate.Editor
             inspectorScroll = GUILayout.BeginScrollView(inspectorScroll);
 
             if (_showSettings)
-                DrawPreviewSettingsPanel();
+                DrawGraphSettingsPanel();
             else if (graph == null)
                 DrawNoGraphInspector();
             else if (string.IsNullOrEmpty(_selectedNodeId))
@@ -779,32 +781,35 @@ namespace DragonGate.Editor
             GUILayout.EndArea();
         }
 
-        private void DrawPreviewSettingsPanel()
+        private void DrawGraphSettingsPanel()
         {
-            GUILayout.Label("Preview Settings", _inspectorTitle14);
+            GUILayout.Label("Graph Settings", _inspectorTitle14);
             GUILayout.Space(8);
 
             var settings = GetOrCreatePreviewSettings();
-            if (_previewSettingsSO == null || _previewSettingsSO.targetObject != settings)
-                _previewSettingsSO = new SerializedObject(settings);
+            if (_graphSettingsSO == null || _graphSettingsSO.targetObject != settings)
+                _graphSettingsSO = new SerializedObject(settings);
 
-            _previewSettingsSO.Update();
-            EditorGUILayout.PropertyField(_previewSettingsSO.FindProperty("DialogueRunnerPrefab"), new GUIContent("DialogueRunner 프리팹"));
-            EditorGUILayout.Space(5);
-            EditorGUILayout.PropertyField(_previewSettingsSO.FindProperty("DefaultTextSpeed"), new GUIContent("기본 텍스트 속도"));
-            EditorGUILayout.PropertyField(_previewSettingsSO.FindProperty("DefaultCharacterViewportPosition"), new GUIContent("기본 캐릭터 위치"));
-            EditorGUILayout.PropertyField(_previewSettingsSO.FindProperty("DefaultCharacterScale"), new GUIContent("기본 캐릭터 스케일"));
-            _previewSettingsSO.ApplyModifiedProperties();
+            _graphSettingsSO.Update();
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DialogueRunnerPrefab"), new GUIContent("DialogueRunner 프리팹"));
+            EditorGUILayout.Space(6);
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DefaultTextSpeed"), new GUIContent("기본 텍스트 속도"));
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DefaultTextSize"), new GUIContent("기본 텍스트 크기"));
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DefaultTextColor"), new GUIContent("기본 텍스트 색상"));
+            EditorGUILayout.Space(6);
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DefaultCharacterViewportPosition"), new GUIContent("기본 캐릭터 위치"));
+            EditorGUILayout.PropertyField(_graphSettingsSO.FindProperty("DefaultCharacterScale"), new GUIContent("기본 캐릭터 스케일"));
+            _graphSettingsSO.ApplyModifiedProperties();
         }
 
         private static DialoguePreviewSettings GetOrCreatePreviewSettings()
         {
-            var settings = AssetDatabase.LoadAssetAtPath<DialoguePreviewSettings>(PREVIEW_SETTINGS_RESOURCE_PATH);
+            var settings = AssetDatabase.LoadAssetAtPath<DialoguePreviewSettings>(GRAPH_SETTINGS_RESOURCE_PATH);
             if (settings != null) return settings;
 
             settings = CreateInstance<DialoguePreviewSettings>();
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(PREVIEW_SETTINGS_RESOURCE_PATH)!);
-            AssetDatabase.CreateAsset(settings, PREVIEW_SETTINGS_RESOURCE_PATH);
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(GRAPH_SETTINGS_RESOURCE_PATH)!);
+            AssetDatabase.CreateAsset(settings, GRAPH_SETTINGS_RESOURCE_PATH);
             AssetDatabase.SaveAssets();
             return settings;
         }
@@ -974,8 +979,10 @@ namespace DragonGate.Editor
                 var dialogueTextProp = so.FindProperty($"{nodePath}.DialogueText");
                 dialogueTextProp.isExpanded = true;
                 EditorGUILayout.PropertyField(dialogueTextProp, s_dialogueTextLabel, true);
-                // 대화 속도
+                // 대화 속도 크기 색상
                 EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.TextSpeed"), s_dialogueTextSpeedLabel);
+                EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.TextSize"), s_dialogueTextSizeLabel);
+                EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.TextColor"), s_dialogueTextColorLabel);
             }
 
             if (node.NodeType == DialogueNodeType.ChapterEnd)
@@ -1147,6 +1154,7 @@ namespace DragonGate.Editor
                 {
                     case DialogueEventType.SetBackground:
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Background"), s_bgSpriteLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_durationLabel);
                         break;
 
                     case DialogueEventType.ShowCharacter:
@@ -1561,6 +1569,8 @@ namespace DragonGate.Editor
             var createdNode = graph.CreateNode(type, pos);
             var settings = GetOrCreatePreviewSettings();
             createdNode.TextSpeed = settings.DefaultTextSpeed;
+            createdNode.TextColor = settings.DefaultTextColor;
+            createdNode.TextSize = settings.DefaultTextSize;
             return createdNode;
         }
         
@@ -1625,10 +1635,17 @@ namespace DragonGate.Editor
             }
             if (col.SharedData.GetEntry(key) == null)
             {
+                col.SharedData.AddKey(key);
+                EditorUtility.SetDirty(col.SharedData);
+                
                 foreach (var table in col.StringTables)
+                {
                     table.AddEntry(key, "");
-                EditorUtility.SetDirty(col);
+                    EditorUtility.SetDirty(table);
+                }
             }
+            EditorUtility.SetDirty(col);
+            AssetDatabase.SaveAssets();
             DGDebug.Log($"Localization Key 추가. {tableName} / {key}", Color.azure);
             return new LocalizedString(tableName, key);
         }
@@ -1640,8 +1657,15 @@ namespace DragonGate.Editor
 
             // ✅ SharedData에서 키 제거 (키 정의 삭제)
             col.SharedData.RemoveKey(key);
+            EditorUtility.SetDirty(col.SharedData); // 더티 처리 무조건 해야함. 그래야 저장됨. -> 로케일이랑 SharedData랑 에셋이 따로임.
+            
+            // ✅ 각 언어 테이블도 개별 dirty 처리
+            foreach (var table in col.StringTables)
+            {
+                table.RemoveEntry(key); // 혹시 값이 남아있을 경우 대비
+                EditorUtility.SetDirty(table);
+            }
 
-            EditorUtility.SetDirty(col.SharedData);
             EditorUtility.SetDirty(col);
             AssetDatabase.SaveAssets();
 

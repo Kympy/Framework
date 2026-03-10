@@ -1,12 +1,10 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using UnityEngine.Events;
 using UnityEngine.InputSystem;
 
@@ -19,7 +17,7 @@ namespace DragonGate
     public class UIDialogue : PanelCore, IInputHandler
     {
         // ── Inspector 연결 ──────────────────────────────────────────────
-
+        [SerializeField] private CanvasGroup _dialogueCanvasGroup;
         [Header("화자")]
         [SerializeField] private Image _speakerNameBackground;
         [SerializeField] private LocalizedTextMeshProUGUI _speakerNameText;
@@ -39,10 +37,11 @@ namespace DragonGate
         [SerializeField] private Color _colorNarration = new Color(0.75f, 0.65f, 0.9f);
 
         [Header("설정")]
-        public bool  autoSkipOnClick = true;
+        public bool  CanSkipOnClick = true;
 
+        public bool InputEnabled => gameObject.activeSelf;
+        
         // ── 내부 상태 ───────────────────────────────────────────────────
-
         private Action              onAdvance;
         private Action<ChoiceData>  onChoice;
         
@@ -52,7 +51,9 @@ namespace DragonGate
         private DialogueNode _currentNode;
         private List<ChoiceData> _choices = new List<ChoiceData>();
 
-        public bool InputEnabled => gameObject.activeSelf;
+        private bool _isDialogueShowing = false;
+        private Tweener _dialogueShowTween;
+        private Tweener _dialogueHideTween;
 
         private CancellationTokenSource _textTokenSource;
 
@@ -62,6 +63,18 @@ namespace DragonGate
         {
             _nextButton?.OnLeftUp.AddListener(OnAdvanceClicked);
             _choiceScrollView.Init(GetChoiceCount, OnUpdateChoices, OnInitChoices);
+
+            _dialogueHideTween = _dialogueCanvasGroup.DOFade(0, 0.5f);
+            _dialogueShowTween = _dialogueCanvasGroup.DOFade(1, 0.5f);
+            _dialogueHideTween.SetAutoKill(false);
+            _dialogueShowTween.SetAutoKill(false);
+            _dialogueHideTween.Pause();
+            _dialogueShowTween.Pause();
+            
+            _dialogueCanvasGroup.alpha = 0;
+            _nextButton.SetActive(false);
+            _speakerNameBackground.SetActive(false);
+            _isDialogueShowing = false;
         }
 
         public override void SetVisible(UnityAction onVisible = null)
@@ -105,21 +118,48 @@ namespace DragonGate
                     _speakerNameText.SetCopy(node.SpeakerName);
                     _speakerNameBackground?.SetActive(true);
                 }
+                // 대화 텍스트 속성 설정
+                _dialogueBodyText.fontSize = node.TextSize;
+                _dialogueBodyText.color = node.TextColor;
+                
+                // 배경 보이기
+                ShowDialogue();
+                
+                // 타이프라이터 시작
+                CancelTypeWriter();
+                _fullText     = node.DialogueText.GetLocalizedString();
+                Typewriter(_fullText, node).Forget();
             }
             else
             {
                 _speakerNameBackground?.SetActive(false);
+                HideDialogue();
             }
-
-            // 타이프라이터 시작
-            CancelTypeWriter();
-            _fullText     = node.DialogueText.GetLocalizedString();
-            Typewriter(_fullText, node).Forget();
         }
 
         public void ShakeText(Vector2 strength, float duration)
         {
             _dialogueBodyText.transform.DOShakePosition(duration, strength);
+        }
+
+        public void ShowDialogue()
+        {
+            if (_isDialogueShowing == false)
+            {
+                _dialogueHideTween.Pause();
+                _dialogueShowTween.Restart();
+                _isDialogueShowing = true;
+            }
+        }
+
+        public void HideDialogue()
+        {
+            if (_isDialogueShowing)
+            {
+                _dialogueShowTween.Pause();
+                _dialogueHideTween.Restart();
+                _isDialogueShowing = false;
+            }
         }
 
         // ── 타이프라이터 ─────────────────────────────────────────────────
@@ -209,12 +249,13 @@ namespace DragonGate
         private void OnAdvanceClicked()
         {
             _nextButton.gameObject.SetActive(false);
+            _dialogueBodyText.Clear();
             onAdvance?.Invoke();
         }
 
         private void OnSkipClicked()
         {
-            if (_isTyping == false || autoSkipOnClick == false) return;
+            if (_isTyping == false || CanSkipOnClick == false) return;
             if (_typingProgress < 0.1f) return;
             // 타이핑 스킵 → 전체 텍스트 즉시 표시
             CancelTypeWriter();

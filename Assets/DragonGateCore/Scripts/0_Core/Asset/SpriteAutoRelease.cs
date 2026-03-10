@@ -9,6 +9,10 @@ namespace DragonGate
 
         public void SetSpriteReference(Sprite sprite)
         {
+            if (_currentSprite != null)
+            {
+                AssetManager.Instance.ReleaseAsset(_currentSprite);
+            }
             _currentSprite = sprite;
         }
 

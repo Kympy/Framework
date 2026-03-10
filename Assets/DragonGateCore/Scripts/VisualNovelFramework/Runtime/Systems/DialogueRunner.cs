@@ -15,16 +15,16 @@ namespace DragonGate
     {
         [Header("References")]
         [SerializeField] private Camera _camera;
-        [SerializeField] private SpriteRenderer _background;
+
+        [SerializeField] private DialogueBackground _background;
         [SerializeField] private Light _mainLight;
+
         [Header("UI")]
         [SerializeField] private AssetReference _dialogueUIPrefab;
-        public SpriteRenderer Background => _background;
 
         // ── 이벤트 ──────────────────────────────────────────────────────
         public event Action<DialogueNode> OnNodeEnter; // 노드 들어올 때
         public event Action<DialogueNode> OnNodeExit; // 노드 나갈 때
-        public event Action               OnDialogueEnd; // 대화 종료 시 콜백
 
         // ── 컨디션 평가자 ────────────────────────────────────────────────
         /// <summary>
@@ -32,17 +32,18 @@ namespace DragonGate
         /// 등록하지 않으면 Condition 노드는 항상 false 로 평가됩니다.
         /// </summary>
         public IConditionEvaluator ConditionEvaluator { get; set; }
+
         public AssetReferenceT<DialogueGraph> CurrentGraphReference => _currentGraphReference;
         public string CurrentNodeId => _currentNode?.nodeId;
 
         // ── 상태 ────────────────────────────────────────────────────────
         private AssetReferenceT<DialogueGraph> _currentGraphReference;
         private DialogueGraph _currentGraph;
-        private DialogueNode  _currentNode;
+        private DialogueNode _currentNode;
         private string _loadTargetNodeId;
         private string _currentBackgroundKey;
-        public  bool          IsRunning { get; private set; }
-        
+        public bool IsRunning { get; private set; }
+
         private EventExecutor _eventExecutor;
         private DialogueCharacterManager _characterManager;
         private UIDialogue _uiDialogue;
@@ -53,7 +54,7 @@ namespace DragonGate
             base.Awake();
             _eventExecutor = new EventExecutor(this);
             _characterManager = new DialogueCharacterManager(this);
-            
+
             if (_camera == null)
             {
                 _camera = Camera.main;
@@ -62,6 +63,7 @@ namespace DragonGate
                     _camera = GameUtil.CreateOrthographicCamera("Generated Camera");
                 }
             }
+
             CameraManager.EnableCamera(_camera);
             transform.position = Vector3.zero;
         }
@@ -69,6 +71,7 @@ namespace DragonGate
         protected override void OnDestroy()
         {
             base.OnDestroy();
+            HideDialogueUI();
             if (_currentGraph != null)
             {
                 AssetManager.Instance.ReleaseAsset(_currentGraph);
@@ -90,69 +93,74 @@ namespace DragonGate
             _currentGraphReference = graphReference;
             _loadTargetNodeId = nodeId;
         }
-        
+
         // 로드된 걸 바로 실행
-        public void StartDialogue(DialogueSnapshotData snapshot)
+        public void StartGraph(DialogueSnapshotData snapshot)
         {
-            StartDialogue(_currentGraph, _currentNode.nodeId);
+            StartGraph(_currentGraph, _currentNode.nodeId);
             RestoreSnapshot(snapshot);
         }
 
-        public void StartDialogue(AssetReferenceT<DialogueGraph> graphReference, string nodeId)
+        public void StartGraph(AssetReferenceT<DialogueGraph> graphReference, string nodeId)
         {
             var graph = AssetManager.Instance.GetAsset<DialogueGraph>(graphReference.RuntimeKey.ToString());
             _currentGraphReference = graphReference;
-            StartDialogue(graph, nodeId);
+            StartGraph(graph, nodeId);
         }
 
         /// <summary>특정 노드 ID부터 대화 시작.</summary>
-        public void StartDialogue(DialogueGraph graph, string nodeId)
+        public void StartGraph(DialogueGraph graph, string nodeId)
         {
             if (graph == null) return;
             _currentGraph = graph;
-            
+
             DialogueNode targetNode = null;
             targetNode = nodeId == null ? graph.GetStartNode() : graph.GetNode(nodeId);
-            if (targetNode == null) { Debug.LogError($"[VNFramework] Node '{nodeId}' not found"); return; }
-            
+            if (targetNode == null)
+            {
+                Debug.LogError($"[VNFramework] Node '{nodeId}' not found");
+                return;
+            }
             CancelToken();
+            ShowDialogueUI();
             DGDebug.Log($"Start Dialogue. {graph.name}", Color.gold);
             IsRunning = true;
             EnterNode(targetNode).Forget();
         }
-        
-        private void EndDialogue()
+
+        private void EndGraph()
         {
-            DGDebug.Log($"End Dialogue.", Color.gold);
+            DGDebug.Log($"End Chapter", Color.gold);
             IsRunning = false;
-            HideDialogueUI();
-            OnDialogueEnd?.Invoke();
         }
 
-        public void CancelDialogue()
+        public void CancelGraph()
         {
-            DGDebug.Log($"Cancel Dialogue.", Color.gold);
+            DGDebug.Log($"Cancel Chapter", Color.gold);
             CancelToken();
             IsRunning = false;
-            HideDialogueUI();
-            _currentNode  = null;
+            _currentNode = null;
             _currentGraph = null;
         }
-        
-        private void OnChapterEnd(AssetReferenceT<DialogueGraph> nextChapterReference)
+
+        private void OnGraphEnd(AssetReferenceT<DialogueGraph> nextChapterReference)
         {
+            _uiDialogue?.HideDialogue();
+            
             if (nextChapterReference == null || nextChapterReference.RuntimeKeyIsValid() == false)
             {
                 DGDebug.Log("Next Chapter Reference Null", Color.crimson);
                 return;
             }
+
             // 여기서 이제 추후에 필요한 챕터 사이간의 로딩이나 delay 연출을 보여줄 수 있음.
             if (_currentGraph != null)
             {
                 AssetManager.Instance.ReleaseAsset(_currentGraph);
                 _currentGraph = null;
             }
-            StartDialogue(nextChapterReference, null);
+
+            StartGraph(nextChapterReference, null);
         }
 
         // ── 내부 노드 처리 ───────────────────────────────────────────────
@@ -183,10 +191,9 @@ namespace DragonGate
                 case DialogueNodeType.ChapterEnd:
                     await ExitNode(node);
                     IsRunning = false;
-                    HideDialogueUI();
                     HideAllCharacter();
-                    OnDialogueEnd?.Invoke();
-                    OnChapterEnd(node.NextChapter);
+                    EndGraph();
+                    OnGraphEnd(node.NextChapter);
                     break;
 
                 case DialogueNodeType.Condition:
@@ -208,11 +215,11 @@ namespace DragonGate
                     {
                         DGDebug.LogError("Next Node is not exists on Condition Node.");
                     }
-                    EndDialogue();
+
+                    EndGraph();
                     break;
 
                 default:
-                    ShowDialogueUI();
                     _uiDialogue?.DisplayNode(node,
                         choice => HandleChoiceSelected(choice).Forget(),
                         () => HandleAdvance().Forget());
@@ -237,16 +244,17 @@ namespace DragonGate
 
             if (string.IsNullOrEmpty(_currentNode.NextNodeId))
             {
-                EndDialogue();
+                EndGraph();
                 return;
             }
 
             var next = _currentGraph.GetNode(_currentNode.NextNodeId);
             if (next == null)
             {
-                EndDialogue();
+                EndGraph();
                 return;
             }
+
             await EnterNode(next);
         }
 
@@ -257,7 +265,7 @@ namespace DragonGate
 
             if (string.IsNullOrEmpty(choice.TargetNodeId))
             {
-                EndDialogue();
+                EndGraph();
                 return;
             }
 
@@ -265,7 +273,7 @@ namespace DragonGate
             if (next == null)
             {
                 Debug.LogWarning($"[VNFramework] Choice target '{choice.TargetNodeId}' not found");
-                EndDialogue();
+                EndGraph();
                 return;
             }
 
@@ -274,7 +282,12 @@ namespace DragonGate
 
         private void AdvanceToNextNode()
         {
-            if (string.IsNullOrEmpty(_currentNode.NextNodeId)) { EndDialogue(); return; }
+            if (string.IsNullOrEmpty(_currentNode.NextNodeId))
+            {
+                EndGraph();
+                return;
+            }
+
             var next = _currentGraph.GetNode(_currentNode.NextNodeId);
             if (next != null)
             {
@@ -282,7 +295,7 @@ namespace DragonGate
             }
             else
             {
-                EndDialogue();
+                EndGraph();
             }
         }
 
@@ -332,6 +345,7 @@ namespace DragonGate
             {
                 DGDebug.Log("Character Scale is less or equal to zero!!", Color.red);
             }
+
             _characterManager.ShowCharacter(assetRef, position, scale);
         }
 
@@ -349,11 +363,13 @@ namespace DragonGate
             _characterManager.PlayAnimation(assetRef, triggerName);
         }
 
-        public void SetBackground(string key)
+        public async UniTask SetBackground(string key, float duration = -1)
         {
             _currentBackgroundKey = key;
-            _background.SetSprite(key);
-            CameraManager.CurrentCamera.FitCameraToSpriteRenderer(_background);
+            if (duration >= 0f)
+                await _background.SwitchBackground(key, duration);
+            else
+                _background.SetBackground(key);
         }
 
         public DialogueSnapshotData CaptureSnapshot()
@@ -380,7 +396,6 @@ namespace DragonGate
                 foreach (var c in snapshot.Characters)
                     ShowCharacter(c.CharacterAsset, c.Position, c.Scale);
             }
-
         }
 
         public void ShakeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 strength, float duration)
@@ -392,8 +407,11 @@ namespace DragonGate
         {
             if (_uiDialogue == null)
             {
-                ShowDialogueUI();
+                DGDebug.LogError("UI Dialogue is not created.");
+                return;
+                // ShowDialogueUI();
             }
+
             _uiDialogue.ShakeText(strength, duration);
         }
     }

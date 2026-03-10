@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 54875ec6a9797467baa29deb75de1d8b, type: 3}
-  m_Name: DialoguePreviewSettings
+  m_Name: DialogueGraphSettings
   m_EditorClassIdentifier: Assembly-CSharp::DragonGate.DialoguePreviewSettings
   DialogueRunnerPrefab:
     m_AssetGUID: 2b74b34ac32f946bcabc1afff95bf44e

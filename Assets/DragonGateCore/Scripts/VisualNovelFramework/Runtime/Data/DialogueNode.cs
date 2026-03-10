@@ -18,6 +18,8 @@ namespace DragonGate
         // ── 대화 내용 ───────────────────────────
         public LocalizedString DialogueText;
         public float TextSpeed = 0.1f;
+        public float TextSize = 30f;
+        public Color TextColor = Color.white;
 
         // ── 분기 ────────────────────────────────
         /// <summary>선택지가 있을 때 사용. 비어있으면 nextNodeId로 자동 진행.</summary>

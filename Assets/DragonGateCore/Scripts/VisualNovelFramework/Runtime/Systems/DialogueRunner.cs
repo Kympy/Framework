@@ -349,13 +349,19 @@ namespace DragonGate
             _characterManager.ShowCharacter(assetRef, position, scale);
         }
 
-        public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease ease, float duration)
+        public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease ease, float duration, float scale = 1f)
         {
             if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
             if (ease == Ease.Unset)
                 _characterManager.TeleportCharacter(assetRef, position);
             else
                 await _characterManager.MoveCharacter(assetRef, position, ease, duration);
+        }
+
+        public async UniTask FadeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
+        {
+            if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
+            await _characterManager.Fade(assetRef, start, end, duration);
         }
 
         public void PlayCharacterAnimation(AssetReferenceT<DialogueCharacterAsset> assetRef, string triggerName)

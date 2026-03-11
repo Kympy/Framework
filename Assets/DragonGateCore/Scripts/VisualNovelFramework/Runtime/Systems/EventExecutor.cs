@@ -79,6 +79,16 @@ namespace DragonGate
                     _runner.HideCharacter(dialogueEvent.CharacterAsset);
                     break;
                     
+                case DialogueEventType.FadeCharacter:
+                    if (dialogueEvent.CharacterAsset == null || dialogueEvent.CharacterAsset.RuntimeKeyIsValid() == false)
+                    {
+                        DGDebug.LogError("Event Fade Character - Character Asset is not assigned.");
+                        break;
+                    }
+                    DGDebug.Log($"Fade Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
+                    await _runner.FadeCharacter(dialogueEvent.CharacterAsset, dialogueEvent.StartColor, dialogueEvent.EndColor, dialogueEvent.Duration);
+                    break;
+                    
                 case DialogueEventType.HideAllCharacter:
                     DGDebug.Log($"Hide All Character", Color.aquamarine);
                     _runner.HideAllCharacter();

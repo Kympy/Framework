@@ -48,7 +48,7 @@ namespace DragonGate
             _characters[key] = new CharacterData { AssetRef = assetRef, ViewportPosition = position, Scale = scale, Character = character };
         }
 
-        public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease easeType = Ease.Linear, float duration = 0.5f)
+        public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease easeType = Ease.Linear, float duration = 0.5f, float scale = 1f)
         {
             var key = GetKey(assetRef);
             if (_characters.TryGetValue(key, out CharacterData existing) == false)
@@ -58,11 +58,13 @@ namespace DragonGate
             }
             var worldPosition = CameraManager.CurrentCamera.ViewportToWorldPoint(position);
             worldPosition.z = 0;
-            var tween = existing.Character.MoveTo(worldPosition, easeType, duration);
-            await UniTaskHelper.WaitTween(_runner, tween);
+            var sequence = DOTween.Sequence();
+            sequence.Append(existing.Character.MoveTo(worldPosition, easeType, duration));
+            sequence.Append(existing.Character.transform.DOScale(scale, duration).SetEase(easeType));
+            await UniTaskHelper.WaitTween(_runner, sequence);
         }
 
-        public void TeleportCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position)
+        public void TeleportCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, float scale = 1f)
         {
             var key = GetKey(assetRef);
             if (_characters.TryGetValue(key, out CharacterData existing) == false)
@@ -73,6 +75,19 @@ namespace DragonGate
             var worldPosition = CameraManager.CurrentCamera.ViewportToWorldPoint(position);
             worldPosition.z = 0;
             existing.Character.TeleportTo(worldPosition);
+            existing.Character.transform.localScale = new Vector3(scale, scale, scale);
+        }
+
+        public async UniTask Fade(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
+        {
+            var key = GetKey(assetRef);
+            if (_characters.TryGetValue(key, out CharacterData existing) == false)
+            {
+                DGDebug.LogError($"Fade Character - Not exists character: {key}");
+                return;
+            }
+            var tween = existing.Character.FadeColor(start, end, duration);
+            await UniTaskHelper.WaitTween(_runner, tween);
         }
 
         public void SetScale(AssetReferenceT<DialogueCharacterAsset> assetRef, float scale)

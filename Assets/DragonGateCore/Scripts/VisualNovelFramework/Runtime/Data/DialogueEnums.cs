@@ -30,6 +30,7 @@ namespace DragonGate
         ShowCharacter = 20,
         MoveCharacter = 21,
         HideCharacter = 30,
+        FadeCharacter = 31,
         HideAllCharacter = 40,
         PlayAnimation = 50,
         PlayEffect = 60,

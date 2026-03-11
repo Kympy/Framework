@@ -45,7 +45,7 @@ namespace DragonGate
 
         public void OnUpdate(float deltaTime)
         {
-            _elapsedSeconds += deltaTime;
+            _elapsedSeconds += deltaTime * GameLoop.GameTimeScale;
             while (_elapsedSeconds >= _secondsPerTick)
             {
                 _elapsedSeconds -= _secondsPerTick;

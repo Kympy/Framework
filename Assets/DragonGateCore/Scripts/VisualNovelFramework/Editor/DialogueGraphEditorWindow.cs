@@ -3,12 +3,12 @@
 // ============================================================
 
 #if UNITY_EDITOR
+using System.Collections.Generic;
 using System.IO;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
-using UnityEngine.Pool;
 using UnityEngine.SceneManagement;
 
 namespace DragonGate.Editor
@@ -22,7 +22,10 @@ namespace DragonGate.Editor
         private string[] _localeNames;
         private DialogueNode _copiedNode;
         private DialogueEvent _copiedEvent;
-        private DialogueNode SelectedNode => _graph?.nodes.Find(n => n.nodeId == _selectedNodeId);
+        private List<List<DialogueNode>> _availablePaths = new();
+        private List<Dictionary<string, int>> _pathSelectedChoices = new();
+        private int _currentPathIndex = 0;
+        private DialogueNode SelectedNode => _graph?.Nodes.Find(n => n.nodeId == _selectedNodeId);
         private SerializedObject _graphSO;
 
         // 설정
@@ -78,7 +81,7 @@ namespace DragonGate.Editor
             EditorApplication.isPlaying = true;
         }
 
-        private static async UniTask Preview(DialogueGraph graph, DialogueNode node)
+        private async UniTask Preview(DialogueGraph graph, DialogueNode node)
         {
             if (DialogueRunner.HasInstance == false) return;
             if (UniTaskLock.IsLocked(graph))
@@ -87,13 +90,35 @@ namespace DragonGate.Editor
                 return;
             }
             using var _ = new UniTaskLock(graph);
-            var path = ListPool<DialogueNode>.Get();
-            var choices = DictionaryPool<string, int>.Get();
-            graph.GetPath(node, path, choices);
-            await DialogueRunner.Instance.RestoreFromPath(graph, path, choices);
-            ListPool<DialogueNode>.Release(path);
-            DictionaryPool<string, int>.Release(choices);
-            OpenWindow().Repaint();
+            _availablePaths.Clear();
+            _pathSelectedChoices.Clear();
+            _currentPathIndex = 0;
+            graph.GetAllPaths(node, _availablePaths, _pathSelectedChoices);
+            if (_availablePaths.Count == 0)
+            {
+                DGDebug.Log("No Available Paths Found!", Color.orange);
+                return;
+            }
+            await DialogueRunner.Instance.RestoreFromPath(graph, _availablePaths[0], _pathSelectedChoices[0]);
+            Repaint();
+        }
+
+        private async UniTask ChangePath(int pathIndex)
+        {
+            if (DialogueRunner.HasInstance == false) return;
+            if (pathIndex < 0 || pathIndex > _availablePaths.Count - 1)
+            {
+                DGDebug.LogError($"Path Index 가 범위를 벗어남. {pathIndex}");
+                return;
+            }
+            if (UniTaskLock.IsLocked(_graph))
+            {
+                DGDebug.Log("이중 클릭 방지 : 경로를 변경 중입니다..");
+                return;
+            }
+            using var _ = new UniTaskLock(_graph);
+            await DialogueRunner.Instance.RestoreFromPath(_graph, _availablePaths[pathIndex], _pathSelectedChoices[pathIndex]);
+            Repaint();
         }
 
         private void OnEnable()

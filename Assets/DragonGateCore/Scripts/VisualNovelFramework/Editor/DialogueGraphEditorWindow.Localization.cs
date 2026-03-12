@@ -99,7 +99,7 @@ namespace DragonGate.Editor
         {
             if (node == null) { DGDebug.LogError("Node is null"); return; }
             if (node.NodeType == DialogueNodeType.Start || node.NodeType == DialogueNodeType.ChapterEnd || node.NodeType == DialogueNodeType.Condition) return;
-            if (string.IsNullOrEmpty(_graph.graphTitle)) { DGDebug.LogError("Graph Title is null or empty!!"); return; }
+            if (string.IsNullOrEmpty(_graph.GraphTitle)) { DGDebug.LogError("Graph Title is null or empty!!"); return; }
 
             string key = string.Format(LOCALIZATION_DIALOGUE_KEY_FORMAT, node.nodeId);
             var localized = AddLocalizationKey(LOCALIZATION_DIALOGUE_TABLE, key);

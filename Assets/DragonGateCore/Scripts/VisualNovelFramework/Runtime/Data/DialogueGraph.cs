@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.Pool;
+using UnityEngine.Serialization;
 
 namespace DragonGate
 {
@@ -10,90 +11,121 @@ namespace DragonGate
     /// 하나의 대화 씬(또는 챕터)을 표현하는 ScriptableObject.
     /// </summary>
     [CreateAssetMenu(fileName = "NewVisualNovelDialogueGraph",
-                     menuName  = "Visual Novel/Dialogue Graph")]
+        menuName = "Visual Novel/Dialogue Graph")]
     public class DialogueGraph : ScriptableObject
     {
-        public string graphId    = "";
-        public string graphTitle = "";
+        [FormerlySerializedAs("graphId")]
+        public string GraphId = "";
+        [FormerlySerializedAs("graphTitle")]
+        public string GraphTitle = "";
 
-        public List<DialogueNode> nodes       = new List<DialogueNode>();
-        public string             startNodeId = "";
+        [FormerlySerializedAs("nodes")]
+        public List<DialogueNode> Nodes = new ();
+        [FormerlySerializedAs("startNodeId")]
+        public string StartNodeId = "";
 
         // ── 런타임 조회 ──────────────────────────────────────────────────
 
         [CanBeNull]
         public DialogueNode GetNode(string id)
         {
-            for (int i = 0; i < nodes.Count; i++)
+            for (int i = 0; i < Nodes.Count; i++)
             {
-                var node = nodes[i];
+                var node = Nodes[i];
                 if (node.nodeId == id) return node;
             }
+
             return null;
         }
 
-        public DialogueNode GetStartNode() => GetNode(startNodeId);
+        public DialogueNode GetStartNode() => GetNode(StartNodeId);
 
-        public void GetPath(DialogueNode fromNode, List<DialogueNode> outPath, Dictionary<string, int> selectedChoices)
+        public void GetPath(DialogueNode targetNode, List<DialogueNode> outPath, Dictionary<string, int> outSelectedChoices)
         {
-            var startNode = GetStartNode();
             outPath.Clear();
-            selectedChoices.Clear();
-            using var _ = HashSetPool<DialogueNode>.Get(out var visitedNodes);
-            FindPath(startNode, fromNode, outPath, selectedChoices, visitedNodes);
+            outSelectedChoices.Clear();
+            using var _ = HashSetPool<DialogueNode>.Get(out var visited);
+            FindPaths(GetStartNode(), targetNode, outPath, outSelectedChoices, visited, findAll: false, null, null);
         }
 
-        private bool FindPath(DialogueNode current, DialogueNode targetNode, 
-            List<DialogueNode> outPath, Dictionary<string, int> selectedChoices, 
-            HashSet<DialogueNode> visitedNodes)
+        public void GetAllPaths(DialogueNode targetNode, List<List<DialogueNode>> outPaths, List<Dictionary<string, int>> outSelectedChoices)
         {
-            if (current == null || visitedNodes.Contains(current)) return false;
+            outPaths.Clear();
+            outSelectedChoices.Clear();
+            using var _1 = HashSetPool<DialogueNode>.Get(out var visited);
+            using var _2 = ListPool<DialogueNode>.Get(out var currentPath);
+            var currentChoices = new Dictionary<string, int>();
+            FindPaths(GetStartNode(), targetNode, currentPath, currentChoices, visited, findAll: true, outPaths, outSelectedChoices);
+        }
 
-            outPath.Add(current);
-            visitedNodes.Add(current);
+        private bool FindPaths(DialogueNode current, DialogueNode targetNode,
+            List<DialogueNode> currentPath, Dictionary<string, int> currentChoices,
+            HashSet<DialogueNode> visited, bool findAll,
+            List<List<DialogueNode>> outPaths, List<Dictionary<string, int>> outSelectedChoices)
+        {
+            if (current == null || visited.Contains(current)) return false;
 
-            if (current == targetNode) return true;
+            currentPath.Add(current);
+            visited.Add(current);
 
-            switch (current.NodeType)
+            if (current == targetNode)
             {
-                case DialogueNodeType.Condition:
+                if (findAll)
                 {
-                    // Condition은 선택지 인덱스 개념 없이 True/False 탐색
-                    foreach (var nextId in new[] { current.TrueNodeId, current.FalseNodeId })
-                    {
-                        if (FindPath(GetNode(nextId), targetNode, outPath, selectedChoices, visitedNodes))
-                            return true;
-                    }
-                    break;
+                    // 스냅샷 저장 후 계속 탐색
+                    outPaths.Add(new List<DialogueNode>(currentPath));
+                    outSelectedChoices.Add(new Dictionary<string, int>(currentChoices));
                 }
-                default:
+                else
                 {
-                    if (current.Choices.IsValid())
-                    {
-                        // 선택지 하나씩 시도, 성공한 인덱스만 기록
-                        for (int i = 0; i < current.Choices.Count; i++)
+                    // 단일 경로 - 찾았으므로 즉시 반환 (currentPath는 그대로 유지)
+                    return true;
+                }
+            }
+            else
+            {
+                switch (current.NodeType)
+                {
+                    case DialogueNodeType.Condition:
+                        foreach (var nextId in new[] { current.TrueNodeId, current.FalseNodeId })
                         {
-                            var nextNode = GetNode(current.Choices[i].TargetNodeId);
-                            selectedChoices[current.nodeId] = i; // 시도할 인덱스 먼저 기록
-
-                            if (FindPath(nextNode, targetNode, outPath, selectedChoices, visitedNodes))
-                                return true; // 이 선택지로 찾았으면 그대로 반환
+                            if (FindPaths(GetNode(nextId), targetNode, currentPath, currentChoices,
+                                    visited, findAll, outPaths, outSelectedChoices))
+                                if (!findAll)
+                                    return true;
                         }
-                        // 모든 선택지 실패 시 제거
-                        selectedChoices.Remove(current.nodeId);
-                    }
-                    else
-                    {
-                        if (FindPath(GetNode(current.NextNodeId), targetNode, outPath, selectedChoices, visitedNodes))
-                            return true;
-                    }
-                    break;
+
+                        break;
+
+                    default:
+                        if (current.Choices.IsValid())
+                        {
+                            for (int i = 0; i < current.Choices.Count; i++)
+                            {
+                                currentChoices[current.nodeId] = i;
+                                if (FindPaths(GetNode(current.Choices[i].TargetNodeId), targetNode,
+                                        currentPath, currentChoices, visited, findAll, outPaths, outSelectedChoices))
+                                    if (!findAll)
+                                        return true;
+                            }
+
+                            currentChoices.Remove(current.nodeId);
+                        }
+                        else
+                        {
+                            if (FindPaths(GetNode(current.NextNodeId), targetNode, currentPath,
+                                    currentChoices, visited, findAll, outPaths, outSelectedChoices))
+                                if (!findAll)
+                                    return true;
+                        }
+
+                        break;
                 }
             }
 
-            // 백트래킹
-            outPath.RemoveLast();
-            visitedNodes.Remove(current); // visited도 백트래킹 필요
+            // 백트래킹 (단일 경로에서 찾은 경우는 여기 안 옴)
+            currentPath.RemoveLast();
+            visited.Remove(current);
             return false;
         }
 
@@ -104,16 +136,16 @@ namespace DragonGate
         {
             var node = new DialogueNode
             {
-                nodeId          = Guid.NewGuid().ToString(),
-                NodeType        = type,
-                editorPosition  = position,
+                nodeId = Guid.NewGuid().ToString(),
+                NodeType = type,
+                editorPosition = position,
             };
 
-            nodes.Add(node);
+            Nodes.Add(node);
 
             // 최초 Start 노드는 자동으로 startNodeId에 등록
-            if (type == DialogueNodeType.Start && string.IsNullOrEmpty(startNodeId))
-                startNodeId = node.nodeId;
+            if (type == DialogueNodeType.Start && string.IsNullOrEmpty(StartNodeId))
+                StartNodeId = node.nodeId;
 
             UnityEditor.EditorUtility.SetDirty(this);
             return node;
@@ -121,19 +153,20 @@ namespace DragonGate
 
         public void DeleteNode(string id)
         {
-            nodes.RemoveAll(n => n.nodeId == id);
+            Nodes.RemoveAll(n => n.nodeId == id);
 
             // 끊어진 참조 정리
-            foreach (var n in nodes)
+            foreach (var n in Nodes)
             {
-                if (n.NextNodeId  == id) n.NextNodeId  = null;
-                if (n.TrueNodeId  == id) n.TrueNodeId  = null;
+                if (n.NextNodeId == id) n.NextNodeId = null;
+                if (n.TrueNodeId == id) n.TrueNodeId = null;
                 if (n.FalseNodeId == id) n.FalseNodeId = null;
                 foreach (var c in n.Choices)
-                    if (c.TargetNodeId == id) c.TargetNodeId = null;
+                    if (c.TargetNodeId == id)
+                        c.TargetNodeId = null;
             }
 
-            if (startNodeId == id) startNodeId = "";
+            if (StartNodeId == id) StartNodeId = "";
 
             UnityEditor.EditorUtility.SetDirty(this);
         }

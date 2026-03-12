@@ -37,7 +37,9 @@ namespace DragonGate
         public AssetReferenceT<DialogueGraph> CurrentGraphReference => _currentGraphReference;
         public string CurrentNodeId => _currentNode?.nodeId;
         public List<DialogueNode> CurrentPath => _currentPath;
+        public List<List<DialogueNode>> AvailablePaths => _availablePaths;
         public Dictionary<string, int> CurrentChoices => _currentChoices;
+        
 
         // ── 상태 ────────────────────────────────────────────────────────
         private AssetReferenceT<DialogueGraph> _currentGraphReference;
@@ -45,8 +47,9 @@ namespace DragonGate
         private DialogueNode _currentNode;
         private string _loadTargetNodeId;
         private string _currentBackgroundKey;
-        private List<DialogueNode> _currentPath = new();
-        private Dictionary<string, int> _currentChoices = new();
+        private readonly List<DialogueNode> _currentPath = new();
+        private readonly List<List<DialogueNode>> _availablePaths = new();
+        private readonly Dictionary<string, int> _currentChoices = new();
         public bool IsRunning { get; private set; }
 
         private EventExecutor _eventExecutor;
@@ -137,7 +140,8 @@ namespace DragonGate
         {
             // 노드 경로 복사
             _currentPath.Clear();
-            for (int i = 0; i < path.Count; i++)
+            // 마지막 노드 빼고, Enter 때 자동으로 들어감.
+            for (int i = 0; i < path.Count - 1; i++)
             {
                 var node = path[i];
                 _currentPath.Add(node);
@@ -193,6 +197,7 @@ namespace DragonGate
         private async UniTask EnterNode(DialogueNode node)
         {
             _currentNode = node;
+            _currentPath.Add(node);
             OnNodeEnter?.Invoke(node);
             DGDebug.Log($"Enter Node : {node.nodeId}", Color.darkSalmon);
             

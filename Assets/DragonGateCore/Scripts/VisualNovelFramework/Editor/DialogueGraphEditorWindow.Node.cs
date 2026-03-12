@@ -79,7 +79,7 @@ namespace DragonGate.Editor
             // 선택지 깊은 복사 (연결은 초기화)
             CloneChoice(newNode, source);
 
-            _graph.nodes.Add(newNode);
+            _graph.Nodes.Add(newNode);
             SelectNode(newNode);
 
             // 로컬라이제이션 엔트리 새로 생성 (GUID가 달라졌으므로)
@@ -127,13 +127,7 @@ namespace DragonGate.Editor
             }
             var headerRect = new Rect(rect.x, rect.y, rect.width, HEADER_H);
             EditorGUI.DrawRect(headerRect, new Color(0, 0, 0, 0.25f));
-
-            GUI.Label(headerRect,
-                NODE_ICONS.TryGetValue(node.NodeType, out var icon) ? icon : node.NodeType.ToString(),
-                _nodeHeaderStyle);
-
-            float y = rect.y + HEADER_H;
-
+            
             string speakerName = null;
             if (node.NodeType == DialogueNodeType.Narration)
             {
@@ -144,21 +138,38 @@ namespace DragonGate.Editor
                 speakerName = node.SpeakerName == null || node.SpeakerName.IsEmpty ? "(캐릭터)" : node.SpeakerName.GetLocalizedString();
             }
 
-            string preview;
+            string headerName;
+            switch (node.NodeType)
+            {
+                default:
+                {
+                    headerName = NODE_ICONS.TryGetValue(node.NodeType, out var icon) ? icon : node.NodeType.ToString();
+                    break;
+                }
+                case DialogueNodeType.Narration:
+                case DialogueNodeType.Character:
+                {
+                    headerName = speakerName;
+                    break;
+                }
+            }
+            GUI.Label(headerRect, headerName, _nodeHeaderStyle);
+            float y = rect.y + HEADER_H;
+
+            string previewDialogueText;
             if (node.DialogueText == null || node.DialogueText.IsEmpty)
             {
-                preview = "<텍스트 없음>";
+                previewDialogueText = "EMPTY";
             }
             else
             {
                 var localized = node.DialogueText.GetLocalizedString();
-                preview = localized.Length > 24 ? localized.Substring(0, 24) + "…" : localized;
+                previewDialogueText = localized.Length > 24 ? localized.Substring(0, 24) + "…" : localized;
             }
 
             if (string.IsNullOrEmpty(speakerName) == false)
             {
-                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_HEIGHT),
-                    $"<b>{speakerName}</b>  {preview}", _nodePreviewRichStyle);
+                GUI.Label(new Rect(rect.x + 8, y, rect.width - 16, PREVIEW_HEIGHT), previewDialogueText, _nodePreviewRichStyle);
                 y += PREVIEW_HEIGHT;
             }
             else if (node.NodeType == DialogueNodeType.ChapterEnd)
@@ -215,6 +226,37 @@ namespace DragonGate.Editor
                 {
                     GUI.Label(new Rect(rect.x + 8, y, rect.width - 24, CHOICE_ROW_HEIGHT), "▸ Next", _nodeNextStyle);
                     DrawPort(GetOutputPortPos(node, -1), portInputColor: false);
+                }
+            }
+            var totalEventCount = node.EnterEvents.Count + node.ExitEvents.Count;
+            if (totalEventCount == 0) return;
+            
+            var totalEventsRect = new Rect(rect.x, rect.y + rect.height, rect.width, (totalEventCount + 2) * PREVIEW_HEIGHT);
+            EditorGUI.DrawRect(totalEventsRect, new Color(0, 0, 0, 0.25f));
+            
+            var eventLabelRect = new Rect(rect.x, rect.y + rect.height, rect.width, PREVIEW_HEIGHT);
+            bool hasEnterEvents = node.EnterEvents.Count > 0;
+            if (hasEnterEvents)
+            {
+                EditorGUI.DrawRect(eventLabelRect, new Color(.1f, 1f, 1f, .25f));
+                GUI.Label(eventLabelRect, $"Enter Events({node.EnterEvents.Count})", _nodeEventsStyle);
+                eventLabelRect.y += PREVIEW_HEIGHT;
+                for (int i = 0; i < node.EnterEvents.Count; i++)
+                {
+                    GUI.Label(eventLabelRect, $"- {node.EnterEvents[i].eventType}");
+                    eventLabelRect.y += PREVIEW_HEIGHT;
+                }
+            }
+
+            if (node.ExitEvents.Count > 0)
+            {
+                EditorGUI.DrawRect(eventLabelRect, new Color(1f, .1f, 1f, .25f));
+                GUI.Label(eventLabelRect, $"Exit Events({node.ExitEvents.Count})", _nodeEventsStyle);
+                eventLabelRect.y += PREVIEW_HEIGHT;
+                for (int i = 0; i < node.ExitEvents.Count; i++)
+                {
+                    GUI.Label(eventLabelRect, $"- {node.ExitEvents[i].eventType}");
+                    eventLabelRect.y += PREVIEW_HEIGHT;
                 }
             }
         }

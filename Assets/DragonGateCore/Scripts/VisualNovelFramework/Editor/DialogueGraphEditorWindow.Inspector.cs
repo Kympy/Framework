@@ -108,11 +108,11 @@ namespace DragonGate.Editor
             GUILayout.Space(6);
 
             EditorGUI.BeginChangeCheck();
-            _graph.graphTitle = EditorGUILayout.TextField("제목", _graph.graphTitle);
-            _graph.graphId = EditorGUILayout.TextField("Graph ID", _graph.graphId);
+            _graph.GraphTitle = EditorGUILayout.TextField("제목", _graph.GraphTitle);
+            _graph.GraphId = EditorGUILayout.TextField("Graph ID", _graph.GraphId);
             GUILayout.Space(4);
-            EditorGUILayout.LabelField("Start Node ID", string.IsNullOrEmpty(_graph.startNodeId) ? "없음" : _graph.startNodeId);
-            EditorGUILayout.LabelField("노드 수", _graph.nodes.Count.ToString());
+            EditorGUILayout.LabelField("Start Node ID", string.IsNullOrEmpty(_graph.StartNodeId) ? "없음" : _graph.StartNodeId);
+            EditorGUILayout.LabelField("노드 수", _graph.Nodes.Count.ToString());
             if (EditorGUI.EndChangeCheck()) EditorUtility.SetDirty(_graph);
 
             GUILayout.Space(12);
@@ -134,9 +134,9 @@ namespace DragonGate.Editor
             // ── SerializedObject 준비 ─────────────────────────────────
             if (_graphSO == null || node == null) return;
             var so = _graphSO;
-            int nodeIdx = _graph.nodes.IndexOf(node);
+            int nodeIdx = _graph.Nodes.IndexOf(node);
             if (nodeIdx < 0) return;
-            string nodePath = $"nodes.Array.data[{nodeIdx}]";
+            string nodePath = $"Nodes.Array.data[{nodeIdx}]";
             so.Update();
 
             EditorGUI.BeginChangeCheck();

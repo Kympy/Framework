@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Localization.Settings;
@@ -26,6 +27,7 @@ namespace DragonGate.Editor
         private GUIStyle _nodeChoiceStyle;
         private GUIStyle _nodeTrueStyle;
         private GUIStyle _nodeFalseStyle;
+        private GUIStyle _nodeEventsStyle;
         private GUIStyle _nodeNextStyle;
         private GUIStyle _inspectorTitle14;
         private GUIStyle _inspectorTitle12;
@@ -50,6 +52,11 @@ namespace DragonGate.Editor
                 fontSize = 10,
                 wordWrap = false,
                 normal = { textColor = new Color(0.9f, 0.9f, 0.9f) },
+            };
+
+            _nodeEventsStyle = new GUIStyle(EditorStyles.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
             };
 
             _nodePreviewRichStyle = new GUIStyle(_nodePreviewStyle) { richText = true };
@@ -91,12 +98,35 @@ namespace DragonGate.Editor
             {
                 GUILayout.Label($"  {_graph.name}", EditorStyles.toolbarButton);
                 GUILayout.FlexibleSpace();
-
-                if (GUILayout.Button("+ Character", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Character);
-                if (GUILayout.Button("+ Narration", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Narration);
-                if (GUILayout.Button("+ Condition", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Condition);
-                if (GUILayout.Button("+ Start", EditorStyles.toolbarButton, GUILayout.Width(60))) AddNode(DialogueNodeType.Start);
-                if (GUILayout.Button("+ End", EditorStyles.toolbarButton, GUILayout.Width(55))) AddNode(DialogueNodeType.ChapterEnd);
+                if (GUILayout.Button("⬅️", EditorStyles.toolbarButton, GUILayout.Width(30)))
+                {
+                    if (DialogueRunner.HasInstance && _availablePaths.Count > 1)
+                    {
+                        _currentPathIndex++;
+                        if (_currentPathIndex > _availablePaths.Count - 1)
+                            _currentPathIndex = 0;
+                        ChangePath(_currentPathIndex).Forget();
+                    }
+                }
+                
+                EditorGUILayout.LabelField($"PATH : {(_availablePaths.Count == 0 ? 0 : _currentPathIndex + 1)}/{_availablePaths.Count}", EditorStyles.toolbarButton, GUILayout.Width(90));
+                
+                if (GUILayout.Button("➡️", EditorStyles.toolbarButton, GUILayout.Width(30)))
+                {
+                    if (DialogueRunner.HasInstance && _availablePaths.Count > 1)
+                    {
+                        _currentPathIndex--;
+                        if (_currentPathIndex < 0)
+                            _currentPathIndex = _availablePaths.Count - 1;
+                        ChangePath(_currentPathIndex).Forget();
+                    }
+                }
+                // 아래 기능 쓸 일이 거의 없음..
+                // if (GUILayout.Button("+ Character", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Character);
+                // if (GUILayout.Button("+ Narration", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Narration);
+                // if (GUILayout.Button("+ Condition", EditorStyles.toolbarButton, GUILayout.Width(80))) AddNode(DialogueNodeType.Condition);
+                // if (GUILayout.Button("+ Start", EditorStyles.toolbarButton, GUILayout.Width(60))) AddNode(DialogueNodeType.Start);
+                // if (GUILayout.Button("+ End", EditorStyles.toolbarButton, GUILayout.Width(55))) AddNode(DialogueNodeType.ChapterEnd);
                 GUILayout.Space(8);
                 if (GUILayout.Button("⌖ Reset View", EditorStyles.toolbarButton, GUILayout.Width(85)))
                 {
@@ -175,7 +205,7 @@ namespace DragonGate.Editor
             // var pivot = Vector2.zero;
             // GUIUtility.ScaleAroundPivot(Vector2.one * _zoom, pivot);
 
-            foreach (var n in _graph.nodes) DrawNodeConnections(n);
+            foreach (var n in _graph.Nodes) DrawNodeConnections(n);
 
             if (connectFromNode != null)
             {
@@ -185,7 +215,7 @@ namespace DragonGate.Editor
 
                 // 가장 가까운 Input 포트에 스냅 → 시각적 끝점 정렬
                 var snapEnd = mousePosInCanvas;
-                foreach (var n in _graph.nodes)
+                foreach (var n in _graph.Nodes)
                 {
                     if (n == connectFromNode) continue;
                     var portPos = GetInputPortPos(n);
@@ -200,7 +230,7 @@ namespace DragonGate.Editor
                 Repaint();
             }
 
-            foreach (var n in _graph.nodes) DrawNode(n);
+            foreach (var n in _graph.Nodes) DrawNode(n);
             
             GUI.matrix = prevMatrix;
 

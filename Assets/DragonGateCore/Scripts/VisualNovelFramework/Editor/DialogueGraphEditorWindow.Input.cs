@@ -180,7 +180,7 @@ namespace DragonGate.Editor
             // var mousePosition = e.mousePosition - new Vector2(0, TOOLBAR_H);
             var mousePosition = ScreenToCanvas(e.mousePosition, canvasRect);
 
-            foreach (var n in _graph.nodes)
+            foreach (var n in _graph.Nodes)
             {
                 if (n.NodeType == DialogueNodeType.Condition)
                 {
@@ -223,9 +223,9 @@ namespace DragonGate.Editor
                 }
             }
 
-            for (int nodeIndex = _graph.nodes.Count - 1; nodeIndex >= 0; nodeIndex--)
+            for (int nodeIndex = _graph.Nodes.Count - 1; nodeIndex >= 0; nodeIndex--)
             {
-                var node = _graph.nodes[nodeIndex];
+                var node = _graph.Nodes[nodeIndex];
                 if (GetNodeRect(node).Contains(mousePosition))
                 {
                     SelectNode(node);
@@ -251,7 +251,7 @@ namespace DragonGate.Editor
 
             if (_graph != null)
             {
-                foreach (var n in _graph.nodes)
+                foreach (var n in _graph.Nodes)
                 {
                     if (n == connectFromNode) continue;
                     if (Vector2.Distance(mousePosition, GetInputPortPos(n)) < PORT_R + 3)
@@ -286,7 +286,7 @@ namespace DragonGate.Editor
 
             // var mp = e.mousePosition - new Vector2(0, TOOLBAR_H);
             var mousePosition = ScreenToCanvas(e.mousePosition, canvasRect);
-            foreach (var n in _graph.nodes)
+            foreach (var n in _graph.Nodes)
             {
                 if (GetNodeRect(n).Contains(mousePosition))
                 {
@@ -305,7 +305,7 @@ namespace DragonGate.Editor
             var m = new GenericMenu();
             m.AddItem(new GUIContent("Start 노드로 지정"), false, () =>
             {
-                _graph.startNodeId = node.nodeId;
+                _graph.StartNodeId = node.nodeId;
                 EditorUtility.SetDirty(_graph);
             });
             m.AddSeparator("");

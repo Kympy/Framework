@@ -24,9 +24,9 @@ namespace DragonGate.Editor
             GUILayout.Space(8);
 
             // ── 요약 정보 ────────────────────────────────────────
-            EditorGUILayout.LabelField("Graph ID",    graph.graphId,    EditorStyles.miniLabel);
-            EditorGUILayout.LabelField("Start Node",  graph.startNodeId ?? "없음", EditorStyles.miniLabel);
-            EditorGUILayout.LabelField("노드 수",     graph.nodes?.Count.ToString() ?? "0", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Graph ID",    graph.GraphId,    EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("Start Node",  graph.StartNodeId ?? "없음", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField("노드 수",     graph.Nodes?.Count.ToString() ?? "0", EditorStyles.miniLabel);
 
             GUILayout.Space(6);
 

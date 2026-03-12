@@ -32,8 +32,8 @@ namespace DragonGate.Editor
             if (string.IsNullOrEmpty(path)) return;
 
             var g = CreateInstance<DialogueGraph>();
-            g.graphId = Guid.NewGuid().ToString();
-            g.graphTitle = System.IO.Path.GetFileNameWithoutExtension(path);
+            g.GraphId = Guid.NewGuid().ToString();
+            g.GraphTitle = System.IO.Path.GetFileNameWithoutExtension(path);
 
             var start = new DialogueNode
             {
@@ -41,8 +41,8 @@ namespace DragonGate.Editor
                 NodeType = DialogueNodeType.Start,
                 editorPosition = new Vector2(80, 200),
             };
-            g.nodes.Add(start);
-            g.startNodeId = start.nodeId;
+            g.Nodes.Add(start);
+            g.StartNodeId = start.nodeId;
 
             AssetDatabase.CreateAsset(g, path);
             AssetDatabase.SaveAssets();

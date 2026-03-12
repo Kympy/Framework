@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using DG.Tweening;
@@ -35,6 +36,8 @@ namespace DragonGate
 
         public AssetReferenceT<DialogueGraph> CurrentGraphReference => _currentGraphReference;
         public string CurrentNodeId => _currentNode?.nodeId;
+        public List<DialogueNode> CurrentPath => _currentPath;
+        public Dictionary<string, int> CurrentChoices => _currentChoices;
 
         // ── 상태 ────────────────────────────────────────────────────────
         private AssetReferenceT<DialogueGraph> _currentGraphReference;
@@ -42,6 +45,8 @@ namespace DragonGate
         private DialogueNode _currentNode;
         private string _loadTargetNodeId;
         private string _currentBackgroundKey;
+        private List<DialogueNode> _currentPath = new();
+        private Dictionary<string, int> _currentChoices = new();
         public bool IsRunning { get; private set; }
 
         private EventExecutor _eventExecutor;
@@ -128,6 +133,26 @@ namespace DragonGate
             EnterNode(targetNode).Forget();
         }
 
+        public async UniTask RestoreFromPath(DialogueGraph graph, List<DialogueNode> path, Dictionary<string, int> choices)
+        {
+            // 노드 경로 복사
+            _currentPath.Clear();
+            for (int i = 0; i < path.Count; i++)
+            {
+                var node = path[i];
+                _currentPath.Add(node);
+            }
+            // 선택지 경로 복사
+            _currentChoices.Clear();
+            foreach (var choice in choices)
+            {
+                _currentChoices.Add(choice.Key, choice.Value);
+            }
+            
+            await RestorePassedEvents(path);
+            StartGraph(graph, path[^1].nodeId);
+        }
+
         private void EndGraph()
         {
             DGDebug.Log($"End Chapter", Color.gold);
@@ -170,6 +195,10 @@ namespace DragonGate
             _currentNode = node;
             OnNodeEnter?.Invoke(node);
             DGDebug.Log($"Enter Node : {node.nodeId}", Color.darkSalmon);
+            
+            // 이벤트 실행 전 특수처리
+            if (node.NodeType == DialogueNodeType.Start)
+                OnStartInternalEvent();
 
             // Enter 이벤트 실행
             GetTokenSource();
@@ -225,6 +254,62 @@ namespace DragonGate
                         () => HandleAdvance().Forget());
                     break;
             }
+        }
+        // 지나온 경로의 이벤트를 일부 복구함.
+        private async UniTask RestorePassedEvents(List<DialogueNode> nodePath)
+        {
+            // 마지막노드(현재 노드)는 이벤트 호출할 필요가 없음.
+            for (int i = 0; i < nodePath.Count - 1; i++)
+            {
+                var node = nodePath[i];
+                if (node.NodeType == DialogueNodeType.Start)
+                    OnStartInternalEvent();
+
+                for (int j = 0; j < node.EnterEvents?.Count; j++)
+                {
+                    var enterEvent = node.EnterEvents[j];
+                    await InvokeEvent(enterEvent);
+                }
+                for (int j = 0; j < node.ExitEvents?.Count; j++)
+                {
+                    var exitEvent = node.ExitEvents[j];
+                    await InvokeEvent(exitEvent);
+                }
+            }
+            // 복구가 필요한 이벤트(이후 노드에 누적으로 영향 가능성이 있는 이벤트)만 복구.
+            async UniTask InvokeEvent(DialogueEvent e)
+            {
+                switch (e.eventType)
+                {
+                    default:
+                    {
+                        return;
+                    }
+                    case DialogueEventType.BgmVolume:
+                    case DialogueEventType.FadeIn:
+                    case DialogueEventType.FadeOut:
+                    case DialogueEventType.ColorCharacter:
+                    case DialogueEventType.HideCharacter:
+                    case DialogueEventType.MoveCharacter:
+                    case DialogueEventType.ShowCharacter:
+                    case DialogueEventType.PlayAnimation:
+                    case DialogueEventType.SetBackground:
+                    case DialogueEventType.HideAllCharacter:
+                    case DialogueEventType.HideUI:
+                    case DialogueEventType.ShowUI:
+                    case DialogueEventType.PlayBGM:
+                    case DialogueEventType.StopBGM:
+                    {
+                        await _eventExecutor.CompleteEvent(e);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void OnStartInternalEvent()
+        {
+            HideAllCharacter();
         }
 
         private async UniTask ExitNode(DialogueNode node)
@@ -349,6 +434,27 @@ namespace DragonGate
             _characterManager.ShowCharacter(assetRef, position, scale);
         }
 
+        public async UniTask ShowFadeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, float duration, float scale = 1f)
+        {
+            if (assetRef == null || assetRef.RuntimeKeyIsValid() == false)
+            {
+                return;
+            }
+
+            if (scale <= 0f)
+            {
+                DGDebug.Log("Character Scale is less or equal to zero!!", Color.red);
+            }
+            _characterManager.ShowCharacter(assetRef, position, scale);
+            await _characterManager.ToTransparent(assetRef, duration);
+        }
+
+        public async UniTask HideFadeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, float duration)
+        {
+            await _characterManager.ToVisible(assetRef, duration);
+            _characterManager.HideCharacter(assetRef);
+        }
+
         public async UniTask MoveCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, Ease ease, float duration, float scale = 1f)
         {
             if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
@@ -358,10 +464,10 @@ namespace DragonGate
                 await _characterManager.MoveCharacter(assetRef, position, ease, duration);
         }
 
-        public async UniTask FadeCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
+        public async UniTask ColorCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
         {
             if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
-            await _characterManager.Fade(assetRef, start, end, duration);
+            await _characterManager.ColorFade(assetRef, start, end, duration);
         }
 
         public void PlayCharacterAnimation(AssetReferenceT<DialogueCharacterAsset> assetRef, string triggerName)

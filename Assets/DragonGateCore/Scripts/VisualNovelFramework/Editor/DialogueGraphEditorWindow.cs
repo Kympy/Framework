@@ -4,9 +4,11 @@
 
 #if UNITY_EDITOR
 using System.IO;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine.Pool;
 using UnityEngine.SceneManagement;
 
 namespace DragonGate.Editor
@@ -76,10 +78,22 @@ namespace DragonGate.Editor
             EditorApplication.isPlaying = true;
         }
 
-        private static void StartRunner(DialogueGraph graph, DialogueNode node)
+        private static async UniTask Preview(DialogueGraph graph, DialogueNode node)
         {
             if (DialogueRunner.HasInstance == false) return;
-            DialogueRunner.Instance.StartGraph(graph, node.nodeId);
+            if (UniTaskLock.IsLocked(graph))
+            {
+                DGDebug.Log("이중 클릭 방지 : 경로를 계산 중입니다..");
+                return;
+            }
+            using var _ = new UniTaskLock(graph);
+            var path = ListPool<DialogueNode>.Get();
+            var choices = DictionaryPool<string, int>.Get();
+            graph.GetPath(node, path, choices);
+            await DialogueRunner.Instance.RestoreFromPath(graph, path, choices);
+            ListPool<DialogueNode>.Release(path);
+            DictionaryPool<string, int>.Release(choices);
+            OpenWindow().Repaint();
         }
 
         private void OnEnable()

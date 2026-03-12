@@ -58,10 +58,8 @@ namespace DragonGate
             }
             var worldPosition = CameraManager.CurrentCamera.ViewportToWorldPoint(position);
             worldPosition.z = 0;
-            var sequence = DOTween.Sequence();
-            sequence.Append(existing.Character.MoveTo(worldPosition, easeType, duration));
-            sequence.Append(existing.Character.transform.DOScale(scale, duration).SetEase(easeType));
-            await UniTaskHelper.WaitTween(_runner, sequence);
+            var tween = existing.Character.MoveTo(worldPosition, easeType, duration, scale);
+            await UniTaskHelper.WaitTween(_runner, tween);
         }
 
         public void TeleportCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, float scale = 1f)
@@ -78,7 +76,7 @@ namespace DragonGate
             existing.Character.transform.localScale = new Vector3(scale, scale, scale);
         }
 
-        public async UniTask Fade(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
+        public async UniTask ColorFade(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
         {
             var key = GetKey(assetRef);
             if (_characters.TryGetValue(key, out CharacterData existing) == false)
@@ -86,7 +84,49 @@ namespace DragonGate
                 DGDebug.LogError($"Fade Character - Not exists character: {key}");
                 return;
             }
+
+            if (duration <= 0f)
+            {
+                existing.Character.SetColor(end);
+                return;
+            }
             var tween = existing.Character.FadeColor(start, end, duration);
+            await UniTaskHelper.WaitTween(_runner, tween);
+        }
+
+        public async UniTask ToTransparent(AssetReferenceT<DialogueCharacterAsset> assetRef, float duration)
+        {
+            var key = GetKey(assetRef);
+            if (_characters.TryGetValue(key, out CharacterData existing) == false)
+            {
+                DGDebug.LogError($"Fade Character - Not exists character: {key}");
+                return;
+            }
+
+            if (duration <= 0f)
+            {
+                existing.Character.SetColor(Color.clear);
+                return;
+            }
+            var tween = existing.Character.ToTransparent(duration);
+            await UniTaskHelper.WaitTween(_runner, tween);
+        }
+
+        public async UniTask ToVisible(AssetReferenceT<DialogueCharacterAsset> assetRef, float duration)
+        {
+            var key = GetKey(assetRef);
+            if (_characters.TryGetValue(key, out CharacterData existing) == false)
+            {
+                DGDebug.LogError($"Fade Character - Not exists character: {key}");
+                return;
+            }
+
+            if (duration <= 0f)
+            {
+                existing.Character.SetColor(Color.clear);
+                return;
+            }
+            var tween = existing.Character.ToVisible(duration);
             await UniTaskHelper.WaitTween(_runner, tween);
         }
 

@@ -28,6 +28,7 @@ namespace DragonGate.Editor
         private static readonly GUIContent s_sfxLabel = new GUIContent("SFX");
         private static readonly GUIContent s_sfxVolumeLabel = new GUIContent("SFX Volume");
         private static readonly GUIContent s_durationLabel = new GUIContent("시간(초)");
+        private static readonly GUIContent s_fadeLabel = new GUIContent("Fade");
         private static readonly GUIContent s_startColorLabel = new GUIContent("시작 색상");
         private static readonly GUIContent s_endColorLabel = new GUIContent("종료 색상");
         private static readonly GUIContent s_waitForCompLabel = new GUIContent("완료 대기");
@@ -114,6 +115,12 @@ namespace DragonGate.Editor
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterViewportPosition"), s_positionLabel);
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterScale"), s_characterScaleLabel);
+                        var fadeProp = evtProp.FindPropertyRelative("Fade");
+                        EditorGUILayout.PropertyField(fadeProp, s_fadeLabel);
+                        if (fadeProp.boolValue)
+                        {
+                            EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_durationLabel);
+                        }
                         break;
                         
                     case DialogueEventType.MoveCharacter:
@@ -126,9 +133,15 @@ namespace DragonGate.Editor
 
                     case DialogueEventType.HideCharacter:
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
+                        fadeProp = evtProp.FindPropertyRelative("Fade");
+                        EditorGUILayout.PropertyField(fadeProp, s_fadeLabel);
+                        if (fadeProp.boolValue)
+                        {
+                            EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_durationLabel);
+                        }
                         break;
                         
-                    case DialogueEventType.FadeCharacter:
+                    case DialogueEventType.ColorCharacter:
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("StartColor"), s_startColorLabel);
                         EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("EndColor"), s_endColorLabel); 
@@ -222,6 +235,8 @@ namespace DragonGate.Editor
                 var settings = GetOrCreatePreviewSettings();
                 insertedNew.FindPropertyRelative("CharacterViewportPosition").vector2Value = settings.DefaultCharacterViewportPosition;
                 insertedNew.FindPropertyRelative("CharacterScale").floatValue = settings.DefaultCharacterScale;
+                insertedNew.FindPropertyRelative("StartColor").colorValue = settings.DefaultStartColor;
+                insertedNew.FindPropertyRelative("EndColor").colorValue = settings.DefaultEndColor;
                 so.ApplyModifiedProperties();
             }
 

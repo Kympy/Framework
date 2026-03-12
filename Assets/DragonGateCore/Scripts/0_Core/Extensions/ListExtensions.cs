@@ -9,6 +9,11 @@ namespace DragonGate
     /// </summary>
     public static class ListExtensions
     {
+        public static void RemoveLast<T>(this List<T> list)
+        {
+            list.RemoveAt(list.Count - 1);
+        }
+        
         /// <summary>
         /// 제거하는 인덱스와 맨 마지막 인덱스를 스왑 후 제거 O(1) 에 끝남.
         /// </summary>

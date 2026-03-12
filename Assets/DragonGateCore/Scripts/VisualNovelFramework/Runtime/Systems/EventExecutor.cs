@@ -35,6 +35,17 @@ namespace DragonGate
             }
         }
 
+        // 이벤트를 동기적으로 즉시 완료상태로 만듦.
+        public async UniTask CompleteEvent(DialogueEvent dialogueEvent)
+        {
+            if (dialogueEvent == null) return;
+            DialogueEvent copied = dialogueEvent.Clone(PoolManager.Instance.GetClass<DialogueEvent>());
+            copied.Duration = 0;
+            copied.WaitForCompletion = false;
+            await RunEvent(copied);
+            PoolManager.Instance.ReturnClass(copied);
+        }
+
         // ── 내부 구현 ────────────────────────────────────────────────────
 
         private async UniTask RunEvent(DialogueEvent dialogueEvent)
@@ -56,7 +67,14 @@ namespace DragonGate
                         break;
                     }
                     DGDebug.Log($"Show Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
-                    _runner.ShowCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.CharacterScale);
+                    if (dialogueEvent.Fade)
+                    {
+                        await _runner.ShowFadeCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.Duration, dialogueEvent.CharacterScale);
+                    }
+                    else
+                    {
+                        _runner.ShowCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.CharacterScale);
+                    }
                     break;
                     
                 case DialogueEventType.MoveCharacter:
@@ -76,17 +94,24 @@ namespace DragonGate
                         break;
                     }
                     DGDebug.Log($"Hide Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
-                    _runner.HideCharacter(dialogueEvent.CharacterAsset);
+                    if (dialogueEvent.Fade)
+                    {
+                        await _runner.HideFadeCharacter(dialogueEvent.CharacterAsset, dialogueEvent.Duration);
+                    }
+                    else
+                    {
+                        _runner.HideCharacter(dialogueEvent.CharacterAsset);
+                    }
                     break;
                     
-                case DialogueEventType.FadeCharacter:
+                case DialogueEventType.ColorCharacter:
                     if (dialogueEvent.CharacterAsset == null || dialogueEvent.CharacterAsset.RuntimeKeyIsValid() == false)
                     {
                         DGDebug.LogError("Event Fade Character - Character Asset is not assigned.");
                         break;
                     }
                     DGDebug.Log($"Fade Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
-                    await _runner.FadeCharacter(dialogueEvent.CharacterAsset, dialogueEvent.StartColor, dialogueEvent.EndColor, dialogueEvent.Duration);
+                    await _runner.ColorCharacter(dialogueEvent.CharacterAsset, dialogueEvent.StartColor, dialogueEvent.EndColor, dialogueEvent.Duration);
                     break;
                     
                 case DialogueEventType.HideAllCharacter:

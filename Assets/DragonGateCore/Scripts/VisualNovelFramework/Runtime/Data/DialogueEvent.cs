@@ -21,6 +21,7 @@ namespace DragonGate
         public Vector2 CharacterViewportPosition = new Vector2(0.5f, 0.5f);
         public float   CharacterScale            = 1f;
         public Ease CharacterEase = Ease.Linear;
+        public bool Fade = false;
         
         // UI
         public AssetReferenceGameObject UIAsset;
@@ -49,27 +50,31 @@ namespace DragonGate
         // 이 이벤트가 완료될 때까지 다음 이벤트 대기
         public bool WaitForCompletion = false;
         
-        public DialogueEvent Clone() => new DialogueEvent
+        public DialogueEvent Clone(DialogueEvent outObject = null)
         {
-            eventType         = eventType,
-            Background       = Background,
-            CharacterAsset    = CharacterAsset,
-            CharacterEase = CharacterEase,
-            CharacterViewportPosition   = CharacterViewportPosition,
-            CharacterScale =  CharacterScale,
-            AnimationTrigger  = AnimationTrigger,
-            UIAsset       = UIAsset,
-            FxAsset       = FxAsset,
-            FxViewportPosition = FxViewportPosition,
-            FxRotation     = FxRotation,
-            ShakeType       = ShakeType,
-            ShakeStrength    = ShakeStrength,
-            AudioClip       = AudioClip,
-            Volume            = Volume,
-            Duration          = Duration,
-            StartColor        = StartColor,
-            EndColor         = EndColor,
-            WaitForCompletion = WaitForCompletion,
-        };
+            outObject ??= new DialogueEvent();
+
+            outObject.eventType = eventType;
+            outObject.Background = Background;
+            outObject.CharacterAsset = CharacterAsset;
+            outObject.CharacterEase = CharacterEase;
+            outObject.CharacterViewportPosition = CharacterViewportPosition;
+            outObject.CharacterScale = CharacterScale;
+            outObject.Fade = Fade;
+            outObject.AnimationTrigger = AnimationTrigger;
+            outObject.UIAsset = UIAsset;
+            outObject.FxAsset = FxAsset;
+            outObject.FxViewportPosition = FxViewportPosition;
+            outObject.FxRotation = FxRotation;
+            outObject.ShakeType = ShakeType;
+            outObject.ShakeStrength = ShakeStrength;
+            outObject.AudioClip = AudioClip;
+            outObject.Volume = Volume;
+            outObject.Duration = Duration;
+            outObject.StartColor = StartColor;
+            outObject.EndColor = EndColor;
+            outObject.WaitForCompletion = WaitForCompletion;
+            return outObject;
+        }
     }
 }

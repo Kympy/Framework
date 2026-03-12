@@ -14,5 +14,8 @@ namespace DragonGate
         [Space, Header("캐릭터 설정")]
         public Vector2 DefaultCharacterViewportPosition = new Vector2(.5f, .5f);
         public float DefaultCharacterScale = 1f;
+        [Space, Header("Color")]
+        public Color DefaultStartColor = Color.white;
+        public Color DefaultEndColor = Color.white;
     }
 }

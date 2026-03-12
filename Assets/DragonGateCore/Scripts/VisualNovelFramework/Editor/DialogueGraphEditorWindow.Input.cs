@@ -1,3 +1,4 @@
+using Cysharp.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ namespace DragonGate.Editor
         {
             _showSettings = false;
             if (EditorApplication.isPlaying)
-                StartRunner(_graph, node);
+                Preview(_graph, node).Forget();
         }
 
         private void SelectNode(DialogueNode node)

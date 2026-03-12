@@ -102,19 +102,29 @@ namespace DragonGate.Editor
             if (_selectedNodeId == node.nodeId)
                 baseColor = Color.Lerp(baseColor, new Color(0.5f, 0.8f, 1f), 0.35f);
             EditorGUI.DrawRect(rect, baseColor);
-
-            if (DialogueRunner.HasInstance)
+            
+            // 현재 플레이 중 표시
+            bool isPlayingNode = DialogueRunner.HasInstance && DialogueRunner.Instance.CurrentNodeId == node.nodeId;
+            if (isPlayingNode)
             {
-                var playingNode = DialogueRunner.Instance.CurrentNodeId == node.nodeId;
-                if (playingNode)
-                {
-                    EditorGUI.DrawRect(new Rect(rect.x - 5, rect.y - 20, rect.width + 10, rect.height + 20), Color.Lerp(baseColor, Color.orangeRed, 0.35f));
-                    GUI.Label(new Rect(rect.x - 5, rect.y - 20, rect.width + 10, 20), "⬇️ CURRENT", _nodeHeaderStyle);
-                }
+                EditorGUI.DrawRect(new Rect(rect.x, rect.y - 20, rect.width, 20), BORDER_PATH);
+                GUI.Label(new Rect(rect.x, rect.y - 20, rect.width, 20), "⬇️ CURRENT", _nodeHeaderStyle);
             }
 
-            DrawOutline(rect, _selectedNodeId == node.nodeId ? BORDER_SELECTED : BORDER_DEFAULT, 1.5f);
-
+            // 선택 표시
+            if (_selectedNodeId == node.nodeId && !isPlayingNode)
+            {
+                DrawOutline(rect, BORDER_SELECTED, 3f);
+            }
+            // 현재 경로 표시
+            else if (DialogueRunner.HasInstance && DialogueRunner.Instance.CurrentPath.Contains(node))
+            {
+                DrawOutline(rect, BORDER_PATH, 3f);
+            }
+            else
+            {
+                DrawOutline(rect, BORDER_DEFAULT, 3f);
+            }
             var headerRect = new Rect(rect.x, rect.y, rect.width, HEADER_H);
             EditorGUI.DrawRect(headerRect, new Color(0, 0, 0, 0.25f));
 
@@ -217,7 +227,7 @@ namespace DragonGate.Editor
             DrawOutline(r, Color.white, 1f);
         }
 
-        private void DrawOutline(Rect r, Color color, float w)
+        private void DrawOutline(Rect r, Color color)
         {
             Handles.BeginGUI();
             Handles.color = color;
@@ -225,21 +235,30 @@ namespace DragonGate.Editor
             Handles.color = Color.white;
             Handles.EndGUI();
         }
+        
+        private void DrawOutline(Rect r, Color color, float thickness)
+        {
+            EditorGUI.DrawRect(new Rect(r.x, r.y, r.width, thickness), color);                        // 상
+            EditorGUI.DrawRect(new Rect(r.x, r.yMax - thickness, r.width, thickness), color);         // 하
+            EditorGUI.DrawRect(new Rect(r.x, r.y, thickness, r.height), color);                       // 좌
+            EditorGUI.DrawRect(new Rect(r.xMax - thickness, r.y, thickness, r.height), color);        // 우
+        }
 
         // ── 연결선 ────────────────────────────────────────────────────
 
         private void DrawNodeConnections(DialogueNode from)
         {
+            bool isPlayingPathConnection = DialogueRunner.HasInstance && DialogueRunner.Instance.CurrentNodeId != from.nodeId && 
+                                            DialogueRunner.Instance.CurrentPath.Contains(from);
+        
             if (from.NodeType == DialogueNodeType.Condition)
             {
                 var trueNode = _graph.GetNode(from.TrueNodeId);
                 if (trueNode != null)
-                    DrawBezier(GetOutputPortPos(from, -1), GetInputPortPos(trueNode),
-                        new Color(0.4f, 0.95f, 0.45f, 0.8f));
+                    DrawBezier(GetOutputPortPos(from, -1), GetInputPortPos(trueNode), isPlayingPathConnection ? CONNECTION_PLAYING : CONNECTION_CONDITION_TRUE);
                 var falseNode = _graph.GetNode(from.FalseNodeId);
                 if (falseNode != null)
-                    DrawBezier(GetOutputPortPos(from, -2), GetInputPortPos(falseNode),
-                        new Color(0.95f, 0.45f, 0.45f, 0.8f));
+                    DrawBezier(GetOutputPortPos(from, -2), GetInputPortPos(falseNode), isPlayingPathConnection ? CONNECTION_PLAYING : CONNECTION_CONDITION_FALSE);
                 return;
             }
 
@@ -247,27 +266,28 @@ namespace DragonGate.Editor
             {
                 for (int i = 0; i < from.Choices.Count; i++)
                 {
+                    bool isSelectedChoice = false;
+                    if (DialogueRunner.HasInstance)
+                        isSelectedChoice = isPlayingPathConnection && DialogueRunner.Instance.CurrentChoices.GetValueOrDefault(from.nodeId, -1) == i;
                     var t = _graph.GetNode(from.Choices[i].TargetNodeId);
                     if (t != null)
-                        DrawBezier(GetOutputPortPos(from, i), GetInputPortPos(t),
-                            new Color(1f, 0.85f, 0.25f, 0.8f));
+                        DrawBezier(GetOutputPortPos(from, i), GetInputPortPos(t), isSelectedChoice ? CONNECTION_PLAYING : CONNECTION_CHOICE);
                 }
             }
 
             var next = _graph.GetNode(from.NextNodeId);
             if (next != null)
-                DrawBezier(GetOutputPortPos(from, -1), GetInputPortPos(next),
-                    new Color(0.4f, 0.95f, 0.45f, 0.8f));
+                DrawBezier(GetOutputPortPos(from, -1), GetInputPortPos(next), isPlayingPathConnection ? CONNECTION_PLAYING : CONNECTION_DEFAULT);
         }
 
-        private void DrawBezier(Vector2 s, Vector2 e, Color col)
+        private void DrawBezier(Vector2 s, Vector2 e, Color color)
         {
             float dx = Mathf.Max(50f, Mathf.Abs(e.x - s.x) * 0.5f);
             Handles.BeginGUI();
             Handles.DrawBezier(s, e,
                 new Vector3(s.x + dx, s.y),
                 new Vector3(e.x - dx, e.y),
-                col, null, 2f);
+                color, null, 2f);
             Handles.color = Color.white;
             Handles.EndGUI();
         }

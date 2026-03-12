@@ -1,32 +1,35 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace DragonGate
 {
     public class UniTaskLock : IDisposable
     {
         // 중복 체크용
-        private static Dictionary<int, object> _lockedObjects = new Dictionary<int, object>();
+        private static HashSet<object> _lockedObjects = new();
 
         public static bool IsLocked(object target)
         {
-            return _lockedObjects.ContainsKey(target.GetHashCode());
+            return _lockedObjects.Contains(target);
         }
 
-        private int _lockTarget;
+        private object _lockTarget;
 
         public UniTaskLock(object target)
         {
-            _lockTarget = target.GetHashCode();
-            if (_lockedObjects.TryAdd(target.GetHashCode(), target) == false)
+            _lockTarget = target;
+            if (_lockedObjects.Add(target) == false)
             {
                 throw new System.Exception($"{target} is already locked");
             }
+            DGDebug.Log($"UniTask Lock {target}", Color.blue);
         }
 
         public void Dispose()
         {
             _lockedObjects.Remove(_lockTarget);
+            DGDebug.Log($"UniTask Unlock {_lockTarget}", Color.cadetBlue);
         }
     }
 }

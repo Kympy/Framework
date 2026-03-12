@@ -9,8 +9,9 @@ namespace DragonGate
         [SerializeField] protected SpriteRenderer _spriteRenderer;
         [SerializeField] protected Animator _animator;
 
-        protected Tweener _moveTween;
-        protected Tweener _fadeTween;
+        protected Tween _moveTween;
+        protected Tween _fadeTween;
+        protected Tween _alphaTween;
 
         protected virtual void Awake()
         {
@@ -32,10 +33,13 @@ namespace DragonGate
             transform.position = position;
         }
 
-        public Tween MoveTo(Vector3 worldPosition, Ease easeType, float duration)
+        public Tween MoveTo(Vector3 worldPosition, Ease easeType, float duration, float scale = 1f)
         {
             _moveTween?.Kill();
-            _moveTween = transform.DOMove(worldPosition, duration).SetEase(easeType);
+            var sequence = DOTween.Sequence();
+            sequence.Append(transform.DOMove(worldPosition, duration).SetEase(easeType));
+            sequence.Append(transform.DOScale(scale, duration).SetEase(easeType));
+            _moveTween = sequence;
             return _moveTween;
         }
 
@@ -44,6 +48,24 @@ namespace DragonGate
             _fadeTween?.Kill();
             _spriteRenderer.color = start;
             return _spriteRenderer.DOColor(end, duration);
+        }
+
+        public Tween ToTransparent(float duration)
+        {
+            _alphaTween?.Kill();
+            return _spriteRenderer.DOFade(0, duration);
+        }
+
+        public Tween ToVisible(float duration)
+        {
+            _alphaTween?.Kill();
+            return _spriteRenderer.DOFade(1, duration);
+        }
+
+        public void SetColor(Color endColor)
+        {
+            _fadeTween?.Kill();
+            _spriteRenderer.color = endColor;
         }
     }
 }

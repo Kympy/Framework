@@ -1,4 +1,4 @@
-﻿using Cysharp.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using System.Buffers;
 using System.Collections.Generic;
 using UnityEngine;
@@ -10,16 +10,16 @@ namespace DragonGate
 {
     public partial class AssetManager : Singleton<AssetManager>
     {
-        private Dictionary<string, AssetInfo> _assetCache = new Dictionary<string, AssetInfo>();
-        private Dictionary<int, string> _instanceCache = new Dictionary<int, string>();
+        private Dictionary<AssetKey, AssetInfo> _assetCache = new Dictionary<AssetKey, AssetInfo>();
+        private Dictionary<int, AssetKey> _instanceCache = new Dictionary<int, AssetKey>();
 
-        public async UniTask<bool> WarmUp<T>(string key) where T : Object
+        public async UniTask<bool> WarmUp<T>(AssetKey key) where T : Object
         {
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo))
             {
                 return true;
             }
-            var handle = Addressables.LoadAssetAsync<T>(key);
+            var handle = Addressables.LoadAssetAsync<T>(key.Value);
             await handle;
             if (handle.Status == AsyncOperationStatus.Failed)
             {
@@ -38,18 +38,18 @@ namespace DragonGate
         /// <summary>
         /// RefCount 변경 없이 캐시된 프리팹을 반환. WarmUp 후에 사용.
         /// </summary>
-        public GameObject PeekPrefab(string key)
+        public GameObject PeekPrefab(AssetKey key)
         {
             if (_assetCache.TryGetValue(key, out var info) && info is AssetInfo<GameObject> goInfo)
                 return goInfo.Handle.Result;
             return null;
         }
 
-        private T LoadAsset<T>(string key) where T : Object
+        private T LoadAsset<T>(AssetKey key) where T : Object
         {
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo) == false)
             {
-                var handle = Addressables.LoadAssetAsync<T>(key); 
+                var handle = Addressables.LoadAssetAsync<T>(key.Value);
                 handle.WaitForCompletion();
                 if (handle.Status == AsyncOperationStatus.Failed)
                 {
@@ -73,11 +73,11 @@ namespace DragonGate
             return typedAssetInfo.Handle.Result;
         }
 
-        private async UniTask<T> LoadAssetAsync<T>(string key) where T : Object
+        private async UniTask<T> LoadAssetAsync<T>(AssetKey key) where T : Object
         {
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo) == false)
             {
-                var handle = Addressables.LoadAssetAsync<T>(key);
+                var handle = Addressables.LoadAssetAsync<T>(key.Value);
                 await handle;
                 if (handle.Status == AsyncOperationStatus.Failed)
                 {
@@ -100,11 +100,11 @@ namespace DragonGate
             typedAssetInfo.ReferenceCount++;
             return typedAssetInfo.Handle.Result;
         }
-        
+
         /// <summary>
         /// 생성해서 반환. Material, Sprite 등 사용했으면 반드시 Release 해주기.
         /// </summary>
-        public T GetAsset<T>(string key, Transform parent = null, bool worldPositionStays = true) where T : Object
+        public T GetAsset<T>(AssetKey key, Transform parent = null, bool worldPositionStays = true) where T : Object
         {
             bool isComponent = typeof(Component).IsAssignableFrom(typeof(T));
             bool isGameObject = typeof(T) == typeof(GameObject);
@@ -112,7 +112,6 @@ namespace DragonGate
             int instanceId;
             if (isComponent || isGameObject)
             {
-                // Always instantiate the prefab GameObject, then get the component if requested
                 var prefabGO = LoadAsset<GameObject>(key);
                 if (prefabGO == null) return null;
 
@@ -135,7 +134,6 @@ namespace DragonGate
             }
             else
             {
-                // Non-instantiable assets (Material, Sprite, etc.)
                 T asset = LoadAsset<T>(key);
                 if (asset == null) return null;
                 instanceId = asset.GetInstanceID();
@@ -144,7 +142,7 @@ namespace DragonGate
             }
         }
 
-        public async UniTask<T> GetAssetAsync<T>(string key, Transform parent = null, bool worldPositionStays = true) where T : Object
+        public async UniTask<T> GetAssetAsync<T>(AssetKey key, Transform parent = null, bool worldPositionStays = true) where T : Object
         {
             bool isComponent = typeof(T).IsComponent();
             bool isGameObject = typeof(T).IsGameObject();
@@ -189,7 +187,6 @@ namespace DragonGate
                 return;
             }
 
-            // Normalize to GameObject instance id if the asset is a Component or GameObject
             int instanceId;
             if (asset.IsComponent())
             {
@@ -205,7 +202,7 @@ namespace DragonGate
                 instanceId = asset.GetInstanceID();
             }
 
-            if (_instanceCache.TryGetValue(instanceId, out string key) == false)
+            if (_instanceCache.TryGetValue(instanceId, out AssetKey key) == false)
             {
                 string msg = $"Trying to release unmanaged asset {instanceId} {asset.name}";
                 if (asset.IsComponent())
@@ -218,23 +215,15 @@ namespace DragonGate
                 }
                 return;
             }
-            
-            bool isUnityObject = asset.IsComponent() || asset.IsGameObject();
-            // We cache the GameObject instance ID for instantiated prefabs to avoid mismatches
-            // when releasing either the Component or the GameObject itself.
 
-            if (isUnityObject)
-            {
-                // Do not remove from _instanceCache here; removal happens when ref count hits zero.
-            }
-            
+            bool isUnityObject = asset.IsComponent() || asset.IsGameObject();
+
             if (_assetCache.TryGetValue(key, out AssetInfo assetInfo) == false)
             {
                 DGDebug.LogError($"Asset with key {key} 'AssetInfo' is not exist on assetCache.");
                 return;
             }
             assetInfo.ReferenceCount--;
-            // 일반 객체에 대해서 Ref 가 0일 때, 캐시에서 제거
             if (isUnityObject == false && assetInfo.ReferenceCount == 0)
             {
                 _instanceCache.Remove(instanceId);
@@ -246,10 +235,10 @@ namespace DragonGate
                 _assetCache.Remove(key);
             }
         }
-        
+
         public void ReleaseUnReferencedAssets()
         {
-            var keysToRemove = ArrayPool<string>.Shared.Rent(_assetCache.Count);
+            var keysToRemove = ArrayPool<AssetKey>.Shared.Rent(_assetCache.Count);
             int index = 0;
             foreach (var asset in _assetCache)
             {
@@ -264,7 +253,7 @@ namespace DragonGate
             {
                 _assetCache.Remove(keysToRemove[i]);
             }
-            ArrayPool<string>.Shared.Return(keysToRemove, true);
+            ArrayPool<AssetKey>.Shared.Return(keysToRemove, clearArray: true);
         }
 
         public void NotifyUnReleasedAssets()

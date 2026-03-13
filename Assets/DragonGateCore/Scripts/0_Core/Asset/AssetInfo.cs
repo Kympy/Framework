@@ -1,11 +1,12 @@
 ﻿using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
+
 namespace DragonGate
 {
     public abstract class AssetInfo
     {
-        public string Key;
+        public AssetKey Key;
         public int ReferenceCount = 1;
 
         public abstract void UnloadAsset();

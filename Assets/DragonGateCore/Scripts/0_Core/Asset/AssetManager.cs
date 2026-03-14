@@ -228,7 +228,10 @@ namespace DragonGate
             {
                 _instanceCache.Remove(instanceId);
             }
-            DGDebug.Log($"Asset released. {assetInfo.Key} : ReferenceCount: {assetInfo.ReferenceCount}");
+            if (GameStarter.IsApplicationQuitting && assetInfo.ReferenceCount > 0)
+                DGDebug.Log($"Asset released. {assetInfo.Key} : ReferenceCount: {assetInfo.ReferenceCount}", Color.red);
+            else
+                DGDebug.Log($"Asset released. {assetInfo.Key} : ReferenceCount: {assetInfo.ReferenceCount}");
             if (assetInfo.ReferenceCount <= 0)
             {
                 assetInfo.UnloadAsset();

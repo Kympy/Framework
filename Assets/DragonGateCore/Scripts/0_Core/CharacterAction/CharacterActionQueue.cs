@@ -82,6 +82,12 @@ namespace DragonGate
             _currentAction = null;
         }
 
+        public void CancelAll()
+        {
+            ClearQueue();
+            _currentAction?.Cancel(_owner);
+        }
+
         public void CancelCurrentAction()
         {
             // 현재 액션이면 캔슬에 대한 요청만 하고 종료 (왜냐면 캔슬은 즉시 없애는 것이 아니라, 액션의 종료 상태로 빠르게 보내는 것이기 때문)

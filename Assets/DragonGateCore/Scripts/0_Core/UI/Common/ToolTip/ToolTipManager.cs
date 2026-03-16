@@ -10,13 +10,15 @@ namespace DragonGate
         private Vector3[] _corners = new Vector3[4];
         private const string ToolTipPrefabKey = "UIToolTip";
 
-        public T GetToolTip<T>(RectTransform rectTransform, string resourceKey) where T : UIToolTip
+        // UI 앵커 - 커스텀 타입
+        public T GetToolTip<T>(RectTransform rectTransform, string resourceKey) where T : UIToolTipBase
         {
             var toolTip = CreateToolTip<T>(resourceKey);
             InitToolTip(toolTip, rectTransform);
             return toolTip;
         }
 
+        // UI 앵커 - 단순 텍스트
         public UIToolTip GetToolTip(Transform transform, string message) => GetToolTip(transform as RectTransform, message);
 
         public UIToolTip GetToolTip(RectTransform rectTransform, string message)
@@ -40,15 +42,42 @@ namespace DragonGate
             return toolTip;
         }
 
-        private void InitToolTip(UIToolTip toolTip, RectTransform target)
+        // 3D 앵커 - 커스텀 타입
+        public T GetToolTip3D<T>(Transform target, string resourceKey) where T : UIToolTip3D
+        {
+            var toolTip = CreateToolTip<T>(resourceKey);
+            InitToolTip3D(toolTip, target);
+            return toolTip;
+        }
+
+        private RectTransform _tooltip3DCanvasRect;
+
+        private RectTransform GetOrCreateToolTip3DCanvasRect()
+        {
+            if (_tooltip3DCanvasRect != null) return _tooltip3DCanvasRect;
+            var canvas = UIManager.CreateCanvas(UISortOrder.ToolTip, name: "ToolTip3DCanvas");
+            _tooltip3DCanvasRect = canvas.transform as RectTransform;
+            return _tooltip3DCanvasRect;
+        }
+
+        private void InitToolTip(UIToolTipBase toolTip, RectTransform target)
         {
             var tip = toolTip.RectTransform;
             tip.SetParent(target, false);
+            tip.transform.ResetLocal(true);
 
             // 텍스트가 설정된 뒤 레이아웃을 빌드해야 실제 크기를 얻을 수 있음
             LayoutRebuilder.ForceRebuildLayoutImmediate(tip);
 
             PlaceToolTip(tip, target);
+            toolTip.SetActive(false);
+        }
+
+        private void InitToolTip3D(UIToolTip3D toolTip, Transform target)
+        {
+            var canvasRect = GetOrCreateToolTip3DCanvasRect();
+            toolTip.RectTransform.SetParent(canvasRect, false);
+            toolTip.SetTarget(target, canvasRect);
             toolTip.SetActive(false);
         }
 
@@ -72,9 +101,6 @@ namespace DragonGate
             }
             Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
             float scale = canvas.scaleFactor;
-            // 우선 tip의 부모는 보통 작은 Ui 단위 요소이기 때문에 Canvas를 Parent로 찾을수없음. 일단 Overlay로 가정.
-            // Camera cam = null;
-            // float scale = 1;
 
             // 상단 벗어나는지 체크
             tip.GetWorldCorners(_corners); // 0=BL, 1=TL, 2=TR, 3=BR
@@ -108,7 +134,7 @@ namespace DragonGate
             tip.anchoredPosition = pos;
         }
 
-        public void HideToolTip(UIToolTip toolTip)
+        public void HideToolTip(UIToolTipBase toolTip)
         {
             if (toolTip == null) return;
             PoolManager.Instance?.ReturnComponent(toolTip);
@@ -119,7 +145,7 @@ namespace DragonGate
             return PoolManager.Instance.GetComponent<UIToolTip>(ToolTipPrefabKey);
         }
 
-        private T CreateToolTip<T>(string resourceKey) where T : UIToolTip
+        private T CreateToolTip<T>(string resourceKey) where T : UIToolTipBase
         {
             return PoolManager.Instance.GetComponent<T>(resourceKey);
         }

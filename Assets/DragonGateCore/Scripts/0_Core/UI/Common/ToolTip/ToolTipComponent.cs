@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.Localization;
 
@@ -8,7 +7,7 @@ namespace DragonGate
     public class ToolTipComponent : MonoBehaviour
     {
         [SerializeField] private LocalizedString _tooltipText;
-        
+
         private BetterButton _betterButton;
         private UIToolTip _toolTip;
 
@@ -16,14 +15,19 @@ namespace DragonGate
         {
             TryGetComponent(out _betterButton);
             if (_betterButton == null) return;
-            _toolTip = ToolTipManager.Instance.GetToolTip(transform as RectTransform, _tooltipText);
             _betterButton.OnEnter?.AddListener(() =>
             {
+                if (_toolTip == null)
+                    _toolTip = UIManager.Instance.ShowToolTip(transform as RectTransform, _tooltipText);
                 _toolTip.SetVisible();
             });
             _betterButton.OnExit?.AddListener(() =>
             {
-                _toolTip.SetHidden();
+                if (_toolTip != null)
+                {
+                    _toolTip.SetHidden();
+                    _toolTip = null;
+                }
             });
         }
 
@@ -32,12 +36,14 @@ namespace DragonGate
             if (_toolTip == null) return;
             if (_toolTip.IsVisible == false) return;
             _toolTip.SetHidden();
+            _toolTip = null;
         }
 
         private void OnDestroy()
         {
             if (_toolTip == null) return;
-            ToolTipManager.Instance?.HideToolTip(_toolTip);
+            _toolTip.SetHidden();
+            _toolTip = null;
         }
     }
 }

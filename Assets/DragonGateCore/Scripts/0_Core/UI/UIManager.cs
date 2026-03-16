@@ -10,7 +10,7 @@ namespace DragonGate
     /// Panel은 동시에 최대 1개만 존재한다는 룰이 전제된다.
     /// Popup은 여러 인스턴스가 동시에 존재할 수 있으며 풀링으로 관리된다.
     /// </summary>
-    public class UIManager : Singleton<UIManager>
+    public partial class UIManager : Singleton<UIManager>
     {
         private PanelController _panelController = new();
         private PopupController _popupController = new();

@@ -6,10 +6,12 @@ namespace DragonGate
     [RequireComponent(typeof(Light))]
     public class DayNightDirectionalLight : CoreBehaviour
     {
-        [SerializeField] private Gradient colorOverDay;
-        [SerializeField] private AnimationCurve intensityOverDay;
+        [SerializeField] private Gradient _lightColorOverDay;
+        [SerializeField] private AnimationCurve _lightIntensityOverDay;
+        [SerializeField] private AnimationCurve _ambientIntensityOverDay;
+        [SerializeField] private AnimationCurve _reflectionIntensityOverDay;
 
-        private const float StartRotation = -90f;
+        // private const float StartRotation = -90f;
         private Light _directionalLight;
 
         private void Awake()
@@ -20,10 +22,16 @@ namespace DragonGate
 
         public void UpdateLight(float normalizedTime)
         {
-            var color = colorOverDay.Evaluate(normalizedTime);
-            var intensity = intensityOverDay.Evaluate(normalizedTime);
+            var color = _lightColorOverDay.Evaluate(normalizedTime);
+            var intensity = _lightIntensityOverDay.Evaluate(normalizedTime);
             _directionalLight.color = color;
             _directionalLight.intensity = intensity;
+
+            float ambientIntensity = _ambientIntensityOverDay.Evaluate(normalizedTime);
+            float reflectionIntensity = _reflectionIntensityOverDay.Evaluate(normalizedTime);
+
+            RenderSettings.ambientIntensity = ambientIntensity;
+            RenderSettings.reflectionIntensity = reflectionIntensity;
 
             float sunAngle = normalizedTime * 360f - 90f;
 

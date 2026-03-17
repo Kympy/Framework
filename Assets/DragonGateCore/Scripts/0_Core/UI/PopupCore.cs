@@ -18,9 +18,9 @@ namespace DragonGate
         [IntChoice(typeof(UISortOrder))]
         [Header("Sort"), SerializeField] protected int _defaultSortOrder = UISortOrder.PopupDefault;
         [Space]
-        // 다중 팝업 허용 여부 : 기본적으로 False
         [Header("Settings")]
-        public bool AllowMultipleInstance = false;
+        public bool PauseGameOnShow = false; // 팝업이 보여질 때 게임 시간이 멈출것인지.
+        public bool AllowMultipleInstance = false; // 다중 팝업 허용 여부 : 기본적으로 False
         public bool BlockBackgroundInput = true;
         public EPopupBackgroundType BackgroundType = EPopupBackgroundType.Black;
         

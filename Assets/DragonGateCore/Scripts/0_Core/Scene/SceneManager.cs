@@ -55,6 +55,7 @@ namespace DragonGate
                 DGDebug.Log("Scene Loading Canceled.", Color.deepPink);
                 return;
             }
+            SetLoadingProgress(0.2f);
             // 중요. 씬로드 어드레서블 콜백에서 벗어나기 위한 처리
             await UniTaskHelper.NextFrame(this);
 
@@ -67,8 +68,13 @@ namespace DragonGate
             {
                 CurrentScene = sceneBase;
                 CurrentScene.SceneInfo = sceneInfo;
-                await CurrentScene.OnSceneLoaded();
+                await CurrentScene.OnSceneLoaded(SetLoadingProgress);
             }
+            SetLoadingProgress(1f);
+
+            if (_currentLoadingScreen != null)
+                await UniTaskHelper.WaitUntil(this, IsLoadingProgressComplete);
+            
             HideLoadingScreen();
             if (CurrentScene != null)
                 CurrentScene.OnSceneEnter();

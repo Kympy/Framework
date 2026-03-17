@@ -64,5 +64,31 @@ namespace DragonGate
             bool pathExists = NavMesh.CalculatePath(startPosition, targetPosition, NavMesh.AllAreas, _path);
             return pathExists && _path.status == NavMeshPathStatus.PathComplete;
         }
+        
+        public static bool TryGetRandomPosition(
+            Vector3 center,
+            float searchRadius,
+            out Vector3 resultPosition,
+            int maxAttemptCount = 30)
+        {
+            for (int attemptIndex = 0; attemptIndex < maxAttemptCount; attemptIndex++)
+            {
+                Vector3 randomPoint =
+                    center + Random.insideUnitSphere * searchRadius;
+
+                if (NavMesh.SamplePosition(
+                        randomPoint,
+                        out NavMeshHit navMeshHit,
+                        searchRadius,
+                        NavMesh.AllAreas))
+                {
+                    resultPosition = navMeshHit.position;
+                    return true;
+                }
+            }
+
+            resultPosition = Vector3.zero;
+            return false;
+        }
     }
 }

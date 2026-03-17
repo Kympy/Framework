@@ -8,6 +8,8 @@ namespace DragonGate
         public string NodeKey { get; set; }
 
         public enum Result { Success, Failure, Running }
+        
+        public virtual void OnEnter() { }
         public abstract Result Tick();
 
         public virtual void SetBlackboard(Blackboard bb)

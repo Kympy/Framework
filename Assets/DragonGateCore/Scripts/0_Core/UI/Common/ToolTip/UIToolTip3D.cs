@@ -29,7 +29,7 @@ namespace DragonGate
 
         public bool IgnoreTimeScale { get; } = true;
 
-        public void OnUpdate(float deltaTime)
+        public virtual void OnUpdate(float deltaTime)
         {
             if (_target == null || CameraManager.CurrentCamera == null || _parentCanvasRect == null)
             {

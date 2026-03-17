@@ -30,12 +30,12 @@ namespace DragonGate
         public PopupCore Show(PopupCore instance) => Show(instance, 0);
         public T Show<T>(PopupCore instance) where T : PopupCore => Show(instance) as T;
 
-        public PopupCore Show<ViewState>(PopupCore instance, ViewState viewState) where ViewState : struct
+        public PopupCore Show<TViewState>(PopupCore instance, TViewState viewState) where TViewState : struct
         {
             // 이미 활성 중이면 상태만 업데이트
             if (_activePopups.Contains(instance))
             {
-                if (instance is IViewState<ViewState> sv) sv.SetViewState(in viewState);
+                if (instance is IViewState<TViewState> sv) sv.SetViewState(in viewState);
                 return instance;
             }
 
@@ -45,7 +45,7 @@ namespace DragonGate
             return ShowPopupInternal(instance, viewState);
         }
 
-        public PopupCore Show<ViewState>(string key, ViewState viewState) where ViewState : struct
+        public PopupCore Show<TViewState>(string key, TViewState viewState) where TViewState : struct
         {
             // 1. 타입 확인 (캐시 또는 첫 로드)
             if (!_keyToType.TryGetValue(key, out Type popupType))
@@ -67,7 +67,7 @@ namespace DragonGate
                 DGDebug.Log($"PopupController : Reuse existing ({key})", Color.cyan);
 
                 // 상태만 업데이트
-                if (activePopup is IViewState<ViewState> stateView)
+                if (activePopup is IViewState<TViewState> stateView)
                 {
                     stateView.SetViewState(in viewState);
                 }
@@ -81,17 +81,23 @@ namespace DragonGate
             return ShowPopupInternal(popup, viewState);
         }
 
-        private PopupCore ShowPopupInternal<ViewState>(PopupCore popup, ViewState viewState) where ViewState : struct
+        private PopupCore ShowPopupInternal<TViewState>(PopupCore popup, TViewState viewState) where TViewState : struct
         {
             DGDebug.Log($"PopupController : Show ({popup.GetType().Name})", Color.cyan);
             popup.SetVisible();
             AttachPopup(popup);
 
             // 렌더 상태 적용
-            if (popup is IViewState<ViewState> stateView)
+            if (popup is IViewState<TViewState> stateView)
             {
                 stateView.SetViewState(in viewState);
             }
+
+            if (popup.PauseGameOnShow)
+            {
+                GameLoop.Pause();
+            }
+            
             return popup;
         }
 
@@ -107,7 +113,7 @@ namespace DragonGate
             return null;
         }
 
-        public T Show<T, ViewState>(string key, ViewState viewState) where ViewState : struct where T : PopupCore
+        public T Show<T, TViewState>(string key, TViewState viewState) where TViewState : struct where T : PopupCore
         {
             return Show(key, viewState) as T;
         }
@@ -125,6 +131,11 @@ namespace DragonGate
 
             popup.SetHidden(() =>
             {
+                // 팝업 때문에 멈춤이 되었다면 복구
+                if (popup.PauseGameOnShow)
+                {
+                    GameLoop.Resume();
+                }
                 DetachPopup(popup);
                 ReturnToPool(popup);
             });

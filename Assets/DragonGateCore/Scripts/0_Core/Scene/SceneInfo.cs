@@ -8,7 +8,7 @@ namespace DragonGate
     public class SceneInfo : ScriptableObject
     {
         public AssetReference SceneReference;
-        public AssetReference LoadingScreenReference;
+        public AssetReferenceGameObject LoadingScreenReference;
         public SceneInfo NextSceneInfo;
     }
 }

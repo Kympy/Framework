@@ -1,3 +1,4 @@
+using System;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
 
@@ -16,16 +17,16 @@ namespace DragonGate
         public PlayerController GetPlayerController() => _playerController;
         
         // 씬 로드 완료 후 Pre-Load가 필요한 부분들을 작성. 실제 씬이 눈에 보여지기 전 시점.
-        public virtual async UniTask OnSceneLoaded()
+        public virtual async UniTask OnSceneLoaded(Action<float> onProgressCallback = null)
         {
             CameraManager.EnableCamera(Camera.main);
             CreateSceneSingleton();
             CreatePlayerController();
             await CreatePawn();
-            await PreLoad();
+            await PreLoad(onProgressCallback);
         }
         // 사전에 미리 로드해야하거나 Warm up 이 필요한 부분을 여기에 작성
-        protected virtual UniTask PreLoad() { return UniTask.CompletedTask; }
+        protected virtual UniTask PreLoad(Action<float> onProgressCallback = null) { return UniTask.CompletedTask; }
         
         // 씬이 실제로 보여지는 시점. 씬 입장 이후에 대한 처리
         public virtual void OnSceneEnter()

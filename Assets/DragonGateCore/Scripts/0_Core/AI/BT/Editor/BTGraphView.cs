@@ -141,13 +141,21 @@ public class BTGraphView : GraphView
         foreach (var nv in nodeViews)
             childrenMap[nv.Guid] = new List<string>();
 
+        var sortBuffer = new List<BTNodeView>();
         foreach (var nodeView in nodeViews)
         {
             if (nodeView.OutputPort == null) continue;
+            sortBuffer.Clear();
             foreach (var edge in nodeView.OutputPort.connections)
             {
-                if (edge.input?.node is BTNodeView child)
-                    childrenMap[nodeView.Guid].Add(child.Guid);
+                if (edge.input?.node is BTNodeView childView)
+                    sortBuffer.Add(childView);
+            }
+            // 그래프 X 좌표 기준 정렬: 왼쪽 노드 = 우선순위 높음(인덱스 0)
+            sortBuffer.Sort((a, b) => a.GetPosition().x.CompareTo(b.GetPosition().x));
+            foreach (var childView in sortBuffer)
+            {
+                childrenMap[nodeView.Guid].Add(childView.Guid);
             }
         }
 

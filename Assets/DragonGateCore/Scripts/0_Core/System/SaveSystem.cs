@@ -52,6 +52,9 @@ namespace DragonGate
         // 슬롯마다 별도 파일(Slot0.es3, Slot1.es3 ...)을 쓰기 때문에 필요하다.
         private ES3Settings RegistrySettings => new ES3Settings("SaveRegistry.es3");
         private ES3Settings GetSlotSettings(int slotIndex) => new ES3Settings($"Slot{slotIndex}.es3");
+        
+        // 콜백
+        public event Action OnSaveCompleted;
 
         // ─── 서브클래스 구현 ───────────────────────────────────────────────
 
@@ -195,7 +198,7 @@ namespace DragonGate
         }
 
         /// <summary>현재 슬롯에 덮어쓰기 저장 (자동저장 등). CurrentSlot이 없으면 새 슬롯 생성.</summary>
-        public void SaveAll()
+        public void SaveAll(bool silence = false)
         {
             DGDebug.Log("Save All.", Color.darkBlue);
             if (CurrentSlot == null) { SaveAsNewSlot(); return; }
@@ -218,6 +221,9 @@ namespace DragonGate
             foreach (var target in _saveTargets)
                 target.Save(target.SaveTargetName, settings);
             DGDebug.Log("Save All Done!", Color.darkBlue);
+            
+            if (silence == false)
+                OnSaveCompleted?.Invoke();
         }
 
         /// <summary>CurrentSlot 데이터로 불러오기. 인게임 씬 진입 시 호출.</summary>

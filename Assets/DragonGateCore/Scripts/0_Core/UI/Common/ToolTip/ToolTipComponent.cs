@@ -34,7 +34,6 @@ namespace DragonGate
         private void OnDisable()
         {
             if (_toolTip == null) return;
-            if (_toolTip.IsVisible == false) return;
             _toolTip.SetHidden();
             _toolTip = null;
         }

@@ -140,6 +140,7 @@ namespace DragonGate
 
         public static float GameTimeScale { get; private set; } = 1f;
         public static Action<float> OnGameTimeScaleChanged;
+        public static float PreviousUnityTimeScale { get; private set; } = 1f;
         
         private readonly Channel<IGameUpdate> _update = new Channel<IGameUpdate>();
         private readonly Channel<IGameLateUpdate> _late = new Channel<IGameLateUpdate>();
@@ -152,6 +153,18 @@ namespace DragonGate
         {
             GameTimeScale = gameTimeScale;
             OnGameTimeScaleChanged?.Invoke(gameTimeScale);
+        }
+
+        // 정지 시는 유니티 타임스케일을 활용
+        public static void Pause()
+        {
+            PreviousUnityTimeScale = Time.timeScale;
+            Time.timeScale = 0f;
+        }
+
+        public static void Resume()
+        {
+            Time.timeScale = PreviousUnityTimeScale;
         }
 
         #region Unity lifecycle

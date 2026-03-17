@@ -14,7 +14,6 @@ namespace DragonGate
     // 큐지만 사실 LinkedList임. -> 왜냐 중간요소를 제거할 일이 있기 때문
     public class CharacterActionQueue
     {
-        public bool IsExecuting => _isExecuting;
         public int Count => _actionQueue.Count;
         
         private readonly LinkedList<ICharacterAction> _actionQueue = new();
@@ -52,21 +51,15 @@ namespace DragonGate
             }
             _actionQueue.AddLast(newAction);
             OnActionAdded?.Invoke(newAction);
-            TryProcessQueue();
-        }
-
-        private void TryProcessQueue()
-        {
             if (_isExecuting == false)
             {
+                _isExecuting = true;
                 ProcessQueue().Forget();
             }
         }
 
         private async UniTaskVoid ProcessQueue()
         {
-            _isExecuting = true;
-
             while (_actionQueue.Count > 0)
             {
                 _currentAction = _actionQueue.First.Value;
@@ -86,6 +79,7 @@ namespace DragonGate
         {
             ClearQueue();
             _currentAction?.Cancel(_owner);
+            _currentAction = null;
         }
 
         public void CancelCurrentAction()
@@ -93,6 +87,7 @@ namespace DragonGate
             // 현재 액션이면 캔슬에 대한 요청만 하고 종료 (왜냐면 캔슬은 즉시 없애는 것이 아니라, 액션의 종료 상태로 빠르게 보내는 것이기 때문)
             _currentAction?.Cancel(_owner);
             OnActionCanceled?.Invoke(_currentAction);
+            _currentAction = null;
         }
 
         public void CancelAction(int targetIndex)

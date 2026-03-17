@@ -15,6 +15,7 @@ namespace DragonGate.Editor
         private static readonly GUIContent s_characterLabel = new GUIContent("캐릭터");
         private static readonly GUIContent s_characterScaleLabel = new GUIContent("크기 배율");
         private static readonly GUIContent s_animTriggerLabel = new GUIContent("애니메이션 트리거");
+        private static readonly GUIContent s_invertedLabel = new GUIContent("좌우 반전");
         private static readonly GUIContent s_shakeTypeLabel = new GUIContent("Shake 타입");
         private static readonly GUIContent s_shakeStrength = new GUIContent("Shake 강도");
         private static readonly GUIContent s_shakeDuration = new GUIContent("Shake 시간");
@@ -139,6 +140,11 @@ namespace DragonGate.Editor
                         {
                             EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Duration"), s_durationLabel);
                         }
+                        break;
+                        
+                    case DialogueEventType.InvertCharacter:
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("CharacterAsset"), s_characterLabel);
+                        EditorGUILayout.PropertyField(evtProp.FindPropertyRelative("Inverted"), s_invertedLabel);
                         break;
                         
                     case DialogueEventType.ColorCharacter:

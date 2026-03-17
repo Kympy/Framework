@@ -38,9 +38,14 @@ namespace DragonGate
             _moveTween?.Kill();
             var sequence = DOTween.Sequence();
             sequence.Append(transform.DOMove(worldPosition, duration).SetEase(easeType));
-            sequence.Append(transform.DOScale(scale, duration).SetEase(easeType));
+            sequence.Join(transform.DOScale(scale, duration).SetEase(easeType));
             _moveTween = sequence;
             return _moveTween;
+        }
+
+        public void Invert(bool invert)
+        {
+            _spriteRenderer.flipX = invert;
         }
 
         public Tween FadeColor(Color start, Color end, float duration)

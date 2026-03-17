@@ -464,9 +464,15 @@ namespace DragonGate
         {
             if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
             if (ease == Ease.Unset)
-                _characterManager.TeleportCharacter(assetRef, position);
+                _characterManager.TeleportCharacter(assetRef, position, scale);
             else
-                await _characterManager.MoveCharacter(assetRef, position, ease, duration);
+                await _characterManager.MoveCharacter(assetRef, position, ease, duration, scale);
+        }
+
+        public void InvertCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, bool inverted)
+        {
+            if (assetRef == null || assetRef.RuntimeKeyIsValid() == false) return;
+            _characterManager.Invert(assetRef, inverted);
         }
 
         public async UniTask ColorCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)

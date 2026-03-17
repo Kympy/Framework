@@ -76,6 +76,17 @@ namespace DragonGate
             existing.Character.transform.localScale = new Vector3(scale, scale, scale);
         }
 
+        public void Invert(AssetReferenceT<DialogueCharacterAsset> assetRef, bool inverted)
+        {
+            var key = GetKey(assetRef);
+            if (_characters.TryGetValue(key, out CharacterData existing) == false)
+            {
+                DGDebug.LogError($"Invert Character - Not exists character: {key}");
+                return;
+            }
+            existing.Character.Invert(inverted);
+        }
+
         public async UniTask ColorFade(AssetReferenceT<DialogueCharacterAsset> assetRef, Color start, Color end, float duration)
         {
             var key = GetKey(assetRef);

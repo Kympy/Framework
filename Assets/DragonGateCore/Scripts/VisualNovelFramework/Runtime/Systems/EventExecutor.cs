@@ -84,7 +84,17 @@ namespace DragonGate
                         break;
                     }
                     DGDebug.Log($"Move Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
-                    await _runner.MoveCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.CharacterEase, dialogueEvent.Duration);
+                    await _runner.MoveCharacter(dialogueEvent.CharacterAsset, dialogueEvent.CharacterViewportPosition, dialogueEvent.CharacterEase, dialogueEvent.Duration, dialogueEvent.CharacterScale);
+                    break;
+                    
+                case DialogueEventType.InvertCharacter:
+                    if (dialogueEvent.CharacterAsset == null || dialogueEvent.CharacterAsset.RuntimeKeyIsValid() == false)
+                    {
+                        DGDebug.LogError("Event Invert Character - Character Asset is not assigned.");
+                        break;
+                    }
+                    DGDebug.Log($"Invert Character : {dialogueEvent.CharacterAsset.RuntimeKey}", Color.aquamarine);
+                    _runner.InvertCharacter(dialogueEvent.CharacterAsset, dialogueEvent.Inverted);
                     break;
 
                 case DialogueEventType.HideCharacter:

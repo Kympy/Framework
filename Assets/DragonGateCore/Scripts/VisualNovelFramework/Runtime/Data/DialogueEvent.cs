@@ -22,6 +22,7 @@ namespace DragonGate
         public float   CharacterScale            = 1f;
         public Ease CharacterEase = Ease.Linear;
         public bool Fade = false;
+        public bool Inverted = false; // 캐릭터 스프라이트 반전 여부
         
         // UI
         public AssetReferenceGameObject UIAsset;

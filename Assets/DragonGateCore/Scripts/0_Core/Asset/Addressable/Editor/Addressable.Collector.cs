@@ -25,7 +25,8 @@ namespace DragonGate
             ".cs",
         };
 
-        [MenuItem("Tools/Addressables/Refresh List")]
+        // [MenuItem("Tools/Addressables/Refresh List")]
+        [MenuItem("Addressables/0. Refresh")]
         public static void SetAddressables()
         {
             var settings = AddressableAssetSettingsDefaultObject.GetSettings(true);
@@ -43,22 +44,31 @@ namespace DragonGate
                 EnumerateAssets(LocalRoot).Concat(EnumerateAssets(RemoteRoot))
             );
 
-            // 2) 중복 키 검사 (파일명 = 키)
-            var keySet = new HashSet<string>(StringComparer.Ordinal);
-            var duplicates = new List<string>();
+            // 2) 중복 키 검사 — 키별로 전체 경로 목록을 수집
+            var keyToPathsMap = new Dictionary<string, List<string>>(StringComparer.Ordinal);
             foreach (var path in allPaths)
             {
                 var key = GetKey(path);
-                if (!keySet.Add(key))
+                if (!keyToPathsMap.TryGetValue(key, out var list))
                 {
-                    duplicates.Add(path);
+                    list = new List<string>();
+                    keyToPathsMap[key] = list;
                 }
+                list.Add(path);
             }
 
-            if (duplicates.Count > 0)
+            var duplicateGroups = keyToPathsMap
+                .Where(kv => kv.Value.Count > 1)
+                .OrderBy(kv => kv.Key)
+                .ToList();
+            
+            if (duplicateGroups.Count > 0)
             {
-                var msg = $"중복된 파일 이름(키)이 발견되어 작업이 중단되었습니다:\n\n {string.Join("\n", duplicates.Distinct())}";
-                EditorUtility.DisplayDialog("Addressables 설정 실패", msg, "OK");
+                var data = duplicateGroups
+                    .Select(kv => (kv.Key, kv.Value))
+                    .ToList();
+
+                AddressableDuplicateReportWindow.Show(data);
                 return;
             }
 

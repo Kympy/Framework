@@ -2,6 +2,8 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -193,6 +195,38 @@ namespace DragonGate
             direction.y = 0;
             direction.Normalize();
             return direction;
+        }
+        
+        public static async UniTask LerpTransform(this Transform transform, Transform targetTransform, CancellationToken token, float duration = 0.3f)
+        {
+            float elapsed = 0f;
+            var startPos = transform.position;
+            var startRot = transform.rotation;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                transform.position = Vector3.Lerp(startPos, targetTransform.position, t);
+                transform.rotation = Quaternion.Lerp(startRot, targetTransform.rotation, t);
+                await UniTask.Yield(token);
+            }
+
+            transform.position = targetTransform.position;
+            transform.rotation = targetTransform.rotation;
+        }
+
+        public static async UniTask LerpPosition(this Transform transform, Vector3 targetPosition, CancellationToken token, float duration = 0.3f)
+        {
+            float elapsed = 0f;
+            var startPos = transform.position;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                transform.position = Vector3.Lerp(startPos, targetPosition, elapsed / duration);
+                await UniTask.Yield(token);
+            }
+            transform.position = targetPosition;
         }
     }
 }

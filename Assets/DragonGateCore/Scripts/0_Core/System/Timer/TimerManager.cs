@@ -17,6 +17,8 @@ namespace DragonGate
             public bool Repeat;
             public bool IsEveryFrame;
             public bool IsUnscaled;
+            public bool IsCountBased;
+            public int RemainingCallbackCount;
             public System.Action Callback;
             public UnityEngine.Behaviour Owner;
 
@@ -25,16 +27,13 @@ namespace DragonGate
                 RemainingTime -= deltaTime;
             }
 
-            // true를 반환하면 타이머 즉시 제거
+            // true를 반환하면 이번 틱에 콜백이 발화됨
             public bool CheckInvoke(float deltaTime)
             {
-                if (Owner != null && !Owner.isActiveAndEnabled)
-                    return true;
-
                 if (IsEveryFrame)
                 {
                     Callback?.Invoke();
-                    return false;
+                    return true;
                 }
 
                 IntervalElapsedTime += deltaTime;
@@ -48,6 +47,7 @@ namespace DragonGate
                         var newInterval = UnityEngine.Random.Range(MinInterval, MaxInterval);
                         Interval = newInterval;
                     }
+                    return true;
                 }
                 return false;
             }
@@ -117,6 +117,7 @@ namespace DragonGate
             timer.Callback = callback;
             timer.Owner = owner;
             timer.Repeat = false;
+            timer.IsCountBased = false;
             timer.RemainingTime = delay;
             timer.Interval = delay;
             timer.RandomInterval = false;
@@ -126,7 +127,8 @@ namespace DragonGate
             return SetTimerInternal(id, timer);
         }
 
-        // 지속 시간만큼 일정 간격마다 실행되는 타이머
+        // 지속 시간만큼 일정 간격마다 실행되는 타이머.
+        // duration / interval 횟수만큼 콜백 발화를 보장함.
         public static TimerHandle SetTimer(float duration, float interval, System.Action callback, UnityEngine.Behaviour owner = null)
         {
             var id = GetId();
@@ -134,14 +136,15 @@ namespace DragonGate
             timer.Callback = callback;
             timer.Owner = owner;
             timer.Repeat = false;
-            timer.RemainingTime = duration;
+            timer.IsCountBased = true;
+            timer.RemainingCallbackCount = Mathf.RoundToInt(duration / interval);
             timer.Interval = interval;
             timer.RandomInterval = false;
             timer.MinInterval = 0;
             timer.MaxInterval = 0;
             return SetTimerInternal(id, timer);
         }
-        
+
         private static TimerHandle SetTimerInternal(uint id, Timer timer)
         {
             var handle = new TimerHandle()
@@ -200,15 +203,39 @@ namespace DragonGate
                 {
                     continue;
                 }
+
                 var timer = timerPair.Value;
-                float dt = timer.IsUnscaled ? unscaledDeltaTime : deltaTime;
-                bool ownerDead = timer.CheckInvoke(dt);
-                if (ownerDead)
+
+                // Owner가 비활성화되면 타이머 즉시 제거
+                if (timer.Owner != null && !timer.Owner.isActiveAndEnabled)
                 {
                     _timersToRemove.Add(timerPair.Key);
+                    continue;
                 }
-                else if (timer.Repeat == false)
+
+                float dt = timer.IsUnscaled ? unscaledDeltaTime : deltaTime;
+                bool callbackFired = timer.CheckInvoke(dt);
+
+                if (timer.Repeat)
                 {
+                    continue;
+                }
+
+                if (timer.IsCountBased)
+                {
+                    // SetTimer: 콜백 횟수 기반으로 만료
+                    if (callbackFired)
+                    {
+                        timer.RemainingCallbackCount--;
+                        if (timer.RemainingCallbackCount <= 0)
+                        {
+                            _timersToRemove.Add(timerPair.Key);
+                        }
+                    }
+                }
+                else
+                {
+                    // SetDelayTimer: 경과 시간 기반으로 만료
                     timer.DecreaseTime(dt);
                     if (timer.RemainingTime <= 0f)
                     {
@@ -236,14 +263,14 @@ namespace DragonGate
             }
             return id;
         }
-        
+
         private static Timer GetTimer()
         {
-            if (_timerPool.TryPop(out var timer) == false) 
+            if (_timerPool.TryPop(out var timer) == false)
                 return new Timer();
             return timer;
         }
-        
+
         private static void ReturnId(uint id)
         {
             _idPool.Push(id);
@@ -255,6 +282,8 @@ namespace DragonGate
             timer.Owner = null;
             timer.IsEveryFrame = false;
             timer.IsUnscaled = false;
+            timer.IsCountBased = false;
+            timer.RemainingCallbackCount = 0;
             timer.IntervalElapsedTime = 0;
             _timerPool.Push(timer);
         }

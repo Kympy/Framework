@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
 using UnityEngine;
 
 namespace DragonGate
@@ -11,6 +12,7 @@ namespace DragonGate
         void CreateDefaultData() { }
         void Save(string saveKey, ES3Settings settings);
         void Load(string saveKey, ES3Settings settings);
+        virtual UniTask InitializeOnSaveDataLoaded() { return UniTask.CompletedTask; }
     }
 
     [System.Serializable]
@@ -238,6 +240,12 @@ namespace DragonGate
             foreach (var target in _saveTargets)
                 target.Load(target.SaveTargetName, settings);
             DGDebug.Log("Load All Done!", Color.darkBlue);
+        }
+
+        public async UniTask InitializeAfterLoadAll()
+        {
+            foreach (var target in _saveTargets)
+                await target.InitializeOnSaveDataLoaded();
         }
     }
 }

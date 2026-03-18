@@ -21,9 +21,12 @@ namespace DragonGate
         private Pawn _owner;
         private ICharacterAction _currentAction;
         
+        public ICharacterAction CurrentAction => _currentAction;
+
         public event Action<ICharacterAction> OnActionAdded;
         public event Action<ICharacterAction> OnActionRemoved;
         public event Action<ICharacterAction> OnActionCanceled;
+        public event Action OnQueueCompleted; // 큐가 완전히 비었을 때 (정상 완료 시)
 
         public CharacterActionQueue(Pawn owner)
         {
@@ -36,16 +39,15 @@ namespace DragonGate
             {
                 case CharacterActionEnqueueType.ReplaceIfSameAsCurrent:
                 {
-                    if (_currentAction?.GetActionType() == newAction.GetActionType())
+                    if (_currentAction?.GetActionKey() == newAction.GetActionKey())
                     {
-                        _currentAction?.Cancel(_owner);
-                        OnActionCanceled?.Invoke(_currentAction);
+                        CancelCurrentAction();
                     }
                     break;
                 }
                 case CharacterActionEnqueueType.IgnoreIfSameAsCurrent:
                 {
-                    if (_currentAction?.GetActionType() == newAction.GetActionType()) return;
+                    if (_currentAction?.GetActionKey() == newAction.GetActionKey()) return;
                     break;
                 }
             }
@@ -62,32 +64,48 @@ namespace DragonGate
         {
             while (_actionQueue.Count > 0)
             {
-                _currentAction = _actionQueue.First.Value;
-                await _currentAction.Execute(_owner);
-                // 행동 다 하고 빼야한다.
-                _actionQueue.Remove(_currentAction);
-                OnActionRemoved?.Invoke(_currentAction);
-                // 소유자가 null 이면 큐 진행 자체를 중단.
-                if (_owner == null) break;
-                _currentAction.OnActionCompleted?.Invoke();
+                var action = _actionQueue.First.Value;
+                _currentAction = action;
+                try
+                {
+                    await action.Execute(_owner);
+                }
+                catch (System.OperationCanceledException)
+                {
+                    // Execute가 중단됨 → Cancel로 정리 작업 수행
+                    if (action.Cancelable)
+                    {
+                        await action.Cancel(_owner);
+                        OnActionCanceled?.Invoke(action);
+                    }
+                }
+                _actionQueue.Remove(action);
+                OnActionRemoved?.Invoke(action);
+                _currentAction = null;
+                // 소유자가 없거나 비활성이면 큐 중단.
+                if (_owner == null || _owner.isActiveAndEnabled == false) break;
+                if (action.IsCanceled == false)
+                    action.OnActionCompleted?.Invoke();
             }
             _isExecuting = false;
             _currentAction = null;
+            OnQueueCompleted?.Invoke();
         }
 
-        public void CancelAll()
+        public void ClearAll()
         {
             ClearQueue();
-            _currentAction?.Cancel(_owner);
-            _currentAction = null;
+            CancelCurrentAction();
         }
 
+        // flag만 세움 → ProcessQueue가 OperationCanceledException을 잡아서 Cancel 처리
         public void CancelCurrentAction()
         {
-            // 현재 액션이면 캔슬에 대한 요청만 하고 종료 (왜냐면 캔슬은 즉시 없애는 것이 아니라, 액션의 종료 상태로 빠르게 보내는 것이기 때문)
-            _currentAction?.Cancel(_owner);
-            OnActionCanceled?.Invoke(_currentAction);
-            _currentAction = null;
+            if (_currentAction == null) return;
+            if (_currentAction.Cancelable == false) return;
+            if (_currentAction.IsCanceled) return;
+
+            _currentAction.RequestCancel();
         }
 
         public void CancelAction(int targetIndex)
@@ -98,8 +116,6 @@ namespace DragonGate
 
             if (_currentAction == current.Value)
             {
-                // 이미 캔슬 중인 액션은 리턴
-                if (_currentAction.IsCanceled) return;
                 CancelCurrentAction();
                 return;
             }
@@ -110,6 +126,20 @@ namespace DragonGate
         public void ClearQueue()
         {
             _actionQueue.Clear();
+        }
+
+        // 현재 실행 중인 액션 + 대기 중인 액션 전부 순회 (저장용)
+        public System.Collections.Generic.IEnumerable<ICharacterAction> GetAllActions()
+        {
+            if (_currentAction != null)
+                yield return _currentAction;
+            var node = _actionQueue.First;
+            while (node != null)
+            {
+                if (node.Value != _currentAction)
+                    yield return node.Value;
+                node = node.Next;
+            }
         }
 
         public LinkedListNode<ICharacterAction> GetActionNodeAt(int targetIndex)

@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine.AddressableAssets;
 
@@ -6,44 +7,62 @@ namespace DragonGate
 {
     public interface ICharacterAction
     {
+        public bool Cancelable { get; }
         public bool IsCanceled { get; }
+        public float ProgressNormalized { get; }
         public Action OnActionCompleted { get; }
-        public Type GetActionType();
+        public string GetActionKey();
+        public string SerializeParameter();
         public AssetReferenceSprite GetActionIcon();
         public UniTask Execute(Pawn pawn);
-        public void Cancel(Pawn pawn);
+        public void RequestCancel();       // CTS만 취소 → Execute가 OperationCanceledException 던짐
+        public UniTask Cancel(Pawn pawn);  // 정리 작업 (StandUp 등) → ProcessQueue에서만 호출
     }
-    
-    // 나중에 풀링해야 할듯.
+
     public sealed class CharacterAction<TParameter> : ICharacterAction
     {
+        public bool Cancelable => ActionDefinition.Cancelable;
         public bool IsCanceled { get; private set; }
+        public float ProgressNormalized { get; private set; }
         public CharacterActionDefinition<TParameter> ActionDefinition { get; private set; }
         public TParameter Parameter { get; private set; }
         public Action OnActionCompleted { get; private set; }
 
-        public CharacterAction(CharacterActionDefinition<TParameter> actionDefinition, TParameter parameter, Action onActionCompleted = null)
+        private readonly float _initialProgress;
+        private CancellationTokenSource _executionCts;
+
+        public CharacterAction(CharacterActionDefinition<TParameter> actionDefinition, TParameter parameter, Action onActionCompleted = null, float initialProgress = 0f)
         {
             ActionDefinition = actionDefinition;
             Parameter = parameter;
             OnActionCompleted = onActionCompleted;
             IsCanceled = false;
+            ProgressNormalized = initialProgress;
+            _initialProgress = initialProgress;
         }
 
-        public Type GetActionType()
-        {
-            return ActionDefinition.GetType();
-        }
+        public string GetActionKey() => ActionDefinition.GetActionKey();
+
+        public string SerializeParameter() => ActionDefinition.SerializeParameter(Parameter);
 
         public UniTask Execute(Pawn pawn)
         {
-            return ActionDefinition.Execute(pawn, Parameter);
+            _executionCts = UniTaskHelper.CreateObjectToken(pawn);
+            var progressReporter = new Progress<float>(value => ProgressNormalized = value);
+            return ActionDefinition.Execute(pawn, Parameter, _executionCts.Token, _initialProgress, progressReporter);
         }
 
-        public void Cancel(Pawn pawn)
+        public void RequestCancel()
         {
-            IsCanceled = true; // 중복 캔슬을 방지하고자 플래그
-            ActionDefinition.Cancel(pawn, Parameter);
+            IsCanceled = true;
+            _executionCts?.Cancel();
+            _executionCts?.Dispose();
+            _executionCts = null;
+        }
+
+        public UniTask Cancel(Pawn pawn)
+        {
+            return ActionDefinition.Cancel(pawn, Parameter);
         }
 
         public AssetReferenceSprite GetActionIcon()

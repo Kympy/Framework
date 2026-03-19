@@ -5,11 +5,11 @@ using Object = UnityEngine.Object;
 
 namespace DragonGate
 {
-    public interface IPoolable
-    {
-        void OnGet();
-        void OnReturn();
-    }
+    // public interface IPoolable
+    // {
+    //     void OnGet();
+    //     void OnReturn();
+    // }
 
     public partial class PoolManager : Singleton<PoolManager>, IDisposable
     {

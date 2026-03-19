@@ -1,4 +1,3 @@
-using DragonGate;
 
 public sealed partial class GameDataManager
 {

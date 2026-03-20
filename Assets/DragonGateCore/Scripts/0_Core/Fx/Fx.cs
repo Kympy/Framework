@@ -7,6 +7,8 @@ namespace DragonGate
         // 모든 배열을 들고 있을 필요 없이, 메인 시스템 하나만 참조
         [SerializeField] protected ParticleSystem _mainParticleSystem;
         [SerializeField] protected bool _autoReturn = true;
+
+        private float _originalSimulationSpeed;
         
         public bool IsAlive() => _mainParticleSystem != null && _mainParticleSystem.IsAlive();
         
@@ -19,10 +21,17 @@ namespace DragonGate
                 _mainParticleSystem = GetComponentInChildren<ParticleSystem>();
             }
 
-            _mainParticleSystem.SetSimulationSpeed(GameLoop.GameTimeScale);
+            _originalSimulationSpeed = _mainParticleSystem.main.simulationSpeed;
+            SetSimulationSpeedByGameTimeScale(GameLoop.GameTimeScale);
 
-            GameLoop.OnGameTimeScaleChanged -= _mainParticleSystem.SetSimulationSpeed;
-            GameLoop.OnGameTimeScaleChanged += _mainParticleSystem.SetSimulationSpeed;
+            GameLoop.OnGameTimeScaleChanged -= SetSimulationSpeedByGameTimeScale;
+            GameLoop.OnGameTimeScaleChanged += SetSimulationSpeedByGameTimeScale;
+            
+        }
+        private void SetSimulationSpeedByGameTimeScale(float gameTimeScale)
+        {
+            if (_mainParticleSystem == null) return;
+            _mainParticleSystem.SetSimulationSpeed(gameTimeScale * _originalSimulationSpeed);
         }
 
         private void Update()
@@ -50,13 +59,12 @@ namespace DragonGate
 
         private void ReturnToPool()
         {
-            PoolManager.Instance?.ReturnFx(this);
+            PoolScope.Return(this);
         }
-
+        
         public void OnGet()
         {
-            var main = _mainParticleSystem.main;
-            main.simulationSpeed = GameLoop.GameTimeScale;
+            SetSimulationSpeedByGameTimeScale(GameLoop.GameTimeScale);
         }
 
         public void OnReturn()

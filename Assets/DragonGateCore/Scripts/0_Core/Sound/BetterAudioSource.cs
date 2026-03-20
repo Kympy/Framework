@@ -108,7 +108,7 @@ namespace DragonGate
         {
             if (_tokenSource == null || _tokenSource.IsCancellationRequested)
             {
-                _tokenSource = UniTaskHelper.CreateNormalGlobalLinkedToken();
+                _tokenSource = UniTaskHelper.GetGlobalLinkedToken();
             }
             return _tokenSource;
         }

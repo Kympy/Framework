@@ -23,9 +23,10 @@ namespace DragonGate
             public DialogueCharacter Character;
         }
 
-        private readonly Dictionary<string, CharacterData> _characters = new();
+        private readonly Dictionary<AssetKey, CharacterData> _characters = new();
+        private readonly Dictionary<AssetKey, PoolHandle<DialogueCharacter>> _characterPools = new();
 
-        private string GetKey(AssetReferenceT<DialogueCharacterAsset> assetRef) => assetRef.RuntimeKey.ToString();
+        private AssetKey GetKey(AssetReferenceT<DialogueCharacterAsset> assetRef) => new AssetKey(assetRef.RuntimeKey);
 
         public void ShowCharacter(AssetReferenceT<DialogueCharacterAsset> assetRef, Vector2 position, float scale = 1)
         {
@@ -37,8 +38,14 @@ namespace DragonGate
             }
             else
             {
-                var asset = AssetManager.Instance.GetAsset<DialogueCharacterAsset>(key);
-                character = PoolManager.Instance.GetComponent<DialogueCharacter>(asset.CharacterPrefab.RuntimeKey.ToString());
+                var characterAsset = AssetManager.Instance.GetAsset<DialogueCharacterAsset>(key);
+                var characterKey = new AssetKey(characterAsset.CharacterPrefab.RuntimeKey);
+                if (_characterPools.TryGetValue(characterKey, out PoolHandle<DialogueCharacter> pool) == false)
+                {
+                    pool = PoolScope.CreatePool<DialogueCharacter>(PoolScopeLoader.FromFunc(() => AssetManager.Instance.GetAsset<GameObject>(characterKey)));
+                    _characterPools.Add(characterKey, pool);
+                }
+                character = pool.Get();
             }
             var worldPosition = CameraManager.CurrentCamera.ViewportToWorldPoint(position);
             worldPosition.z = 0;
@@ -174,7 +181,7 @@ namespace DragonGate
                 DGDebug.LogError($"Hide Character - Not exists : {key}");
                 return;
             }
-            PoolManager.Instance.ReturnComponent(data.Character);
+            PoolScope.Return(data.Character);
             _characters.Remove(key);
         }
 
@@ -182,7 +189,7 @@ namespace DragonGate
         {
             foreach (var data in _characters.Values)
             {
-                PoolManager.Instance.ReturnComponent(data.Character);
+                PoolScope.Return(data.Character);
             }
             _characters.Clear();
         }

@@ -69,12 +69,12 @@ namespace DragonGate
             return CancellationTokenSource.CreateLinkedTokenSource(behaviour.destroyCancellationToken, _sceneTokenSource.Token);
         }
 
-        public static CancellationTokenSource CreateNormalSceneLinkedToken()
+        public static CancellationTokenSource GetSceneLinkedToken()
         {
             return CancellationTokenSource.CreateLinkedTokenSource(_sceneTokenSource.Token);
         }
 
-        public static CancellationTokenSource CreateNormalGlobalLinkedToken()
+        public static CancellationTokenSource GetGlobalLinkedToken()
         {
             return CancellationTokenSource.CreateLinkedTokenSource(globalTokenSource.Token);
         }

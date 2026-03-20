@@ -11,11 +11,14 @@ namespace DragonGate
     public class EventExecutor
     {
         private DialogueRunner _runner;
+        private ClassPoolHandle<DialogueEvent> _eventClassPool;
+        private Dictionary<AssetKey, PoolHandle<Fx>> _fxPools = new();
 
         // 생성하면서 runner 인스턴스 넘겨줘야함. 어차피 둘은 한 몸이기도하고, runner를 받아서 unitask를 돌려야하기 때문.
         public EventExecutor(DialogueRunner runner)
         {
             _runner = runner;
+            _eventClassPool = PoolScope.CreateClassPool<DialogueEvent>();
         }
 
         // ── 공개 API ─────────────────────────────────────────────────────
@@ -39,11 +42,11 @@ namespace DragonGate
         public async UniTask CompleteEvent(DialogueEvent dialogueEvent)
         {
             if (dialogueEvent == null) return;
-            DialogueEvent copied = dialogueEvent.Clone(PoolManager.Instance.GetClass<DialogueEvent>());
+            DialogueEvent copied = dialogueEvent.Clone(_eventClassPool.Get());
             copied.Duration = 0;
             copied.WaitForCompletion = false;
             await RunEvent(copied);
-            PoolManager.Instance.ReturnClass(copied);
+            _eventClassPool?.Return(copied);
         }
 
         // ── 내부 구현 ────────────────────────────────────────────────────
@@ -144,8 +147,13 @@ namespace DragonGate
                 case DialogueEventType.PlayEffect:
                     if (dialogueEvent.FxAsset == null) break;
                     if (dialogueEvent.FxAsset.RuntimeKeyIsValid() == false) break;
-                    var fxKey =  dialogueEvent.FxAsset.RuntimeKey.ToString();
-                    var fx = PoolManager.Instance.GetFx(fxKey);
+                    var fxKey = new AssetKey(dialogueEvent.FxAsset.RuntimeKey);
+                    if (_fxPools.TryGetValue(fxKey, out var fxPool) == false)
+                    {
+                        fxPool = PoolScope.CreatePool<Fx>(PoolScopeLoader.FromFunc(() => AssetManager.Instance.GetAsset<GameObject>(fxKey)));
+                        _fxPools[fxKey] = fxPool;
+                    }
+                    var fx = fxPool.Get();
                     if (fx == null)
                     {
                         DGDebug.LogError($"Fx Key is not valid.{fxKey}");

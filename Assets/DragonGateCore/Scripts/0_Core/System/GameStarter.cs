@@ -61,7 +61,6 @@ namespace DragonGate
             InputManager.CreateInstance();
             AssetManager.CreateInstance();
             SceneManager.CreateInstance();
-            PoolManager.CreateInstance();
             UIManager.CreateInstance();
             SoundManager.CreateInstance();
         }

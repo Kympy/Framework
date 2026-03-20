@@ -54,7 +54,7 @@ namespace DragonGate
 
         protected void ReturnToPool()
         {
-            PoolManager.Instance?.ReturnComponent(this);
+            PoolScope.Return(this);
         }
 
         private DOTweenAnimation FindLongestDOTweenAnimation()

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Tables;
@@ -8,6 +9,8 @@ namespace DragonGate
     public partial class ToolTipManager : Singleton<ToolTipManager>
     {
         private Vector3[] _corners = new Vector3[4];
+        private readonly Dictionary<string, PoolHandle<UIToolTipBase>> _poolHandles = new();
+        
         private const string ToolTipPrefabKey = "UIToolTip";
 
         // UI 앵커 - 커스텀 타입
@@ -137,17 +140,27 @@ namespace DragonGate
         public void HideToolTip(UIToolTipBase toolTip)
         {
             if (toolTip == null) return;
-            PoolManager.Instance?.ReturnComponent(toolTip);
+            PoolScope.Return(toolTip);
         }
 
         private UIToolTip CreateToolTip()
         {
-            return PoolManager.Instance.GetComponent<UIToolTip>(ToolTipPrefabKey);
+            if (_poolHandles.TryGetValue(ToolTipPrefabKey, out var poolHandle) == false)
+            {
+                poolHandle = PoolScope.CreatePool<UIToolTipBase>(PoolScopeLoader.FromFunc(() => AssetManager.Instance.GetAsset<GameObject>(ToolTipPrefabKey)));
+                _poolHandles[ToolTipPrefabKey] = poolHandle;
+            }
+            return poolHandle.Get() as UIToolTip;
         }
 
         private T CreateToolTip<T>(string resourceKey) where T : UIToolTipBase
         {
-            return PoolManager.Instance.GetComponent<T>(resourceKey);
+            if (_poolHandles.TryGetValue(resourceKey, out var poolHandle) == false)
+            {
+                poolHandle = PoolScope.CreatePool<UIToolTipBase>(PoolScopeLoader.FromFunc(() => AssetManager.Instance.GetAsset<GameObject>(resourceKey)));
+                _poolHandles[resourceKey] = poolHandle;
+            }
+            return poolHandle.Get() as T;
         }
     }
 }

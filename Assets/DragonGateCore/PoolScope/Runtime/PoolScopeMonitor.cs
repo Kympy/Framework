@@ -100,11 +100,33 @@ namespace DragonGate
 
         private void HandleKeyboardToggle()
         {
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+            if (_isBindingKey)
+            {
+                var currentKeyboard = UnityEngine.InputSystem.Keyboard.current;
+                if (currentKeyboard == null) return;
+
+                foreach (var key in UnityEngine.InputSystem.Keyboard.current.allKeys)
+                {
+                    if (key.wasPressedThisFrame)
+                    {
+                        _toggleKey    = InputSystemKeyToKeyCode(key.keyCode);
+                        _isBindingKey = false;
+                        SavePrefs();
+                        return;
+                    }
+                }
+                return;
+            }
+
+            if (UnityEngine.InputSystem.Keyboard.current != null &&
+                UnityEngine.InputSystem.Keyboard.current[LegacyKeyCodeToInputSystemKey(_toggleKey)].wasPressedThisFrame)
+                _isVisible = true;
+#else
             if (_isBindingKey)
             {
                 foreach (KeyCode keyCode in System.Enum.GetValues(typeof(KeyCode)))
                 {
-                    // Reject mouse buttons
                     if (keyCode >= KeyCode.Mouse0 && keyCode <= KeyCode.Mouse6) continue;
                     if (Input.GetKeyDown(keyCode))
                     {
@@ -119,13 +141,38 @@ namespace DragonGate
 
             if (Input.GetKeyDown(_toggleKey))
                 _isVisible = true;
+#endif
         }
 
         private void HandleMobileGesture()
         {
             if (_useGesture == false) return;
 
-            if (Input.touchCount == GestureTouchCount)
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+            var touchscreen = UnityEngine.InputSystem.Touchscreen.current;
+            if (touchscreen == null) return;
+
+            int activeTouches = 0;
+            bool anyEnded = false;
+            for (int i = 0; i < touchscreen.touches.Count; i++)
+            {
+                var phase = touchscreen.touches[i].phase.ReadValue();
+                if (phase != UnityEngine.InputSystem.TouchPhase.None)
+                    activeTouches++;
+                if (phase == UnityEngine.InputSystem.TouchPhase.Ended)
+                    anyEnded = true;
+            }
+#else
+            int activeTouches = Input.touchCount;
+            bool anyEnded = false;
+            for (int i = 0; i < Input.touchCount; i++)
+            {
+                if (Input.GetTouch(i).phase == TouchPhase.Ended)
+                    anyEnded = true;
+            }
+#endif
+
+            if (activeTouches == GestureTouchCount)
             {
                 if (_gestureTracking == false)
                 {
@@ -133,17 +180,13 @@ namespace DragonGate
                     _gestureStartTime = Time.realtimeSinceStartup;
                 }
 
-                for (int i = 0; i < Input.touchCount; i++)
+                if (anyEnded)
                 {
-                    if (Input.GetTouch(i).phase == TouchPhase.Ended)
+                    float elapsed = Time.realtimeSinceStartup - _gestureStartTime;
+                    if (elapsed <= GestureTapMaxDuration)
                     {
-                        float elapsed = Time.realtimeSinceStartup - _gestureStartTime;
-                        if (elapsed <= GestureTapMaxDuration)
-                        {
-                            _isVisible       = !_isVisible;
-                            _gestureTracking = false;
-                        }
-                        return;
+                        _isVisible       = !_isVisible;
+                        _gestureTracking = false;
                     }
                 }
             }
@@ -157,18 +200,166 @@ namespace DragonGate
         {
             if (_isResizing == false) return;
 
-            if (Input.GetMouseButton(0) == false)
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+            bool mouseHeld = UnityEngine.InputSystem.Mouse.current != null &&
+                             UnityEngine.InputSystem.Mouse.current.leftButton.isPressed;
+            Vector2 mousePos = UnityEngine.InputSystem.Mouse.current != null
+                ? UnityEngine.InputSystem.Mouse.current.position.ReadValue()
+                : Vector2.zero;
+#else
+            bool mouseHeld = Input.GetMouseButton(0);
+            Vector2 mousePos = Input.mousePosition;
+#endif
+
+            if (mouseHeld == false)
             {
                 _isResizing = false;
                 SavePrefs();
                 return;
             }
 
-            Vector2 mousePosGui = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+            Vector2 mousePosGui = new Vector2(mousePos.x, Screen.height - mousePos.y);
             Vector2 delta = mousePosGui - _resizeStartMouse;
             _windowRect.width  = Mathf.Max(MinWindowWidth,  _resizeStartSize.x + delta.x);
             _windowRect.height = Mathf.Max(MinWindowHeight, _resizeStartSize.y + delta.y);
         }
+
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+        private static UnityEngine.InputSystem.Key LegacyKeyCodeToInputSystemKey(KeyCode keyCode)
+        {
+            // Covers common keys. Falls back to None for unmapped keys.
+            switch (keyCode)
+            {
+                case KeyCode.BackQuote:    return UnityEngine.InputSystem.Key.Backquote;
+                case KeyCode.Tab:          return UnityEngine.InputSystem.Key.Tab;
+                case KeyCode.Return:       return UnityEngine.InputSystem.Key.Enter;
+                case KeyCode.Escape:       return UnityEngine.InputSystem.Key.Escape;
+                case KeyCode.Space:        return UnityEngine.InputSystem.Key.Space;
+                case KeyCode.Delete:       return UnityEngine.InputSystem.Key.Delete;
+                case KeyCode.Backspace:    return UnityEngine.InputSystem.Key.Backspace;
+                case KeyCode.UpArrow:      return UnityEngine.InputSystem.Key.UpArrow;
+                case KeyCode.DownArrow:    return UnityEngine.InputSystem.Key.DownArrow;
+                case KeyCode.LeftArrow:    return UnityEngine.InputSystem.Key.LeftArrow;
+                case KeyCode.RightArrow:   return UnityEngine.InputSystem.Key.RightArrow;
+                case KeyCode.F1:           return UnityEngine.InputSystem.Key.F1;
+                case KeyCode.F2:           return UnityEngine.InputSystem.Key.F2;
+                case KeyCode.F3:           return UnityEngine.InputSystem.Key.F3;
+                case KeyCode.F4:           return UnityEngine.InputSystem.Key.F4;
+                case KeyCode.F5:           return UnityEngine.InputSystem.Key.F5;
+                case KeyCode.F6:           return UnityEngine.InputSystem.Key.F6;
+                case KeyCode.F7:           return UnityEngine.InputSystem.Key.F7;
+                case KeyCode.F8:           return UnityEngine.InputSystem.Key.F8;
+                case KeyCode.F9:           return UnityEngine.InputSystem.Key.F9;
+                case KeyCode.F10:          return UnityEngine.InputSystem.Key.F10;
+                case KeyCode.F11:          return UnityEngine.InputSystem.Key.F11;
+                case KeyCode.F12:          return UnityEngine.InputSystem.Key.F12;
+                case KeyCode.Alpha0:       return UnityEngine.InputSystem.Key.Digit0;
+                case KeyCode.Alpha1:       return UnityEngine.InputSystem.Key.Digit1;
+                case KeyCode.Alpha2:       return UnityEngine.InputSystem.Key.Digit2;
+                case KeyCode.Alpha3:       return UnityEngine.InputSystem.Key.Digit3;
+                case KeyCode.Alpha4:       return UnityEngine.InputSystem.Key.Digit4;
+                case KeyCode.Alpha5:       return UnityEngine.InputSystem.Key.Digit5;
+                case KeyCode.Alpha6:       return UnityEngine.InputSystem.Key.Digit6;
+                case KeyCode.Alpha7:       return UnityEngine.InputSystem.Key.Digit7;
+                case KeyCode.Alpha8:       return UnityEngine.InputSystem.Key.Digit8;
+                case KeyCode.Alpha9:       return UnityEngine.InputSystem.Key.Digit9;
+                case KeyCode.A:            return UnityEngine.InputSystem.Key.A;
+                case KeyCode.B:            return UnityEngine.InputSystem.Key.B;
+                case KeyCode.C:            return UnityEngine.InputSystem.Key.C;
+                case KeyCode.D:            return UnityEngine.InputSystem.Key.D;
+                case KeyCode.E:            return UnityEngine.InputSystem.Key.E;
+                case KeyCode.F:            return UnityEngine.InputSystem.Key.F;
+                case KeyCode.G:            return UnityEngine.InputSystem.Key.G;
+                case KeyCode.H:            return UnityEngine.InputSystem.Key.H;
+                case KeyCode.I:            return UnityEngine.InputSystem.Key.I;
+                case KeyCode.J:            return UnityEngine.InputSystem.Key.J;
+                case KeyCode.K:            return UnityEngine.InputSystem.Key.K;
+                case KeyCode.L:            return UnityEngine.InputSystem.Key.L;
+                case KeyCode.M:            return UnityEngine.InputSystem.Key.M;
+                case KeyCode.N:            return UnityEngine.InputSystem.Key.N;
+                case KeyCode.O:            return UnityEngine.InputSystem.Key.O;
+                case KeyCode.P:            return UnityEngine.InputSystem.Key.P;
+                case KeyCode.Q:            return UnityEngine.InputSystem.Key.Q;
+                case KeyCode.R:            return UnityEngine.InputSystem.Key.R;
+                case KeyCode.S:            return UnityEngine.InputSystem.Key.S;
+                case KeyCode.T:            return UnityEngine.InputSystem.Key.T;
+                case KeyCode.U:            return UnityEngine.InputSystem.Key.U;
+                case KeyCode.V:            return UnityEngine.InputSystem.Key.V;
+                case KeyCode.W:            return UnityEngine.InputSystem.Key.W;
+                case KeyCode.X:            return UnityEngine.InputSystem.Key.X;
+                case KeyCode.Y:            return UnityEngine.InputSystem.Key.Y;
+                case KeyCode.Z:            return UnityEngine.InputSystem.Key.Z;
+                default:                   return UnityEngine.InputSystem.Key.None;
+            }
+        }
+
+        private static KeyCode InputSystemKeyToKeyCode(UnityEngine.InputSystem.Key key)
+        {
+            switch (key)
+            {
+                case UnityEngine.InputSystem.Key.Backquote: return KeyCode.BackQuote;
+                case UnityEngine.InputSystem.Key.Tab:       return KeyCode.Tab;
+                case UnityEngine.InputSystem.Key.Enter:     return KeyCode.Return;
+                case UnityEngine.InputSystem.Key.Escape:    return KeyCode.Escape;
+                case UnityEngine.InputSystem.Key.Space:     return KeyCode.Space;
+                case UnityEngine.InputSystem.Key.Delete:    return KeyCode.Delete;
+                case UnityEngine.InputSystem.Key.Backspace: return KeyCode.Backspace;
+                case UnityEngine.InputSystem.Key.UpArrow:   return KeyCode.UpArrow;
+                case UnityEngine.InputSystem.Key.DownArrow: return KeyCode.DownArrow;
+                case UnityEngine.InputSystem.Key.LeftArrow: return KeyCode.LeftArrow;
+                case UnityEngine.InputSystem.Key.RightArrow:return KeyCode.RightArrow;
+                case UnityEngine.InputSystem.Key.F1:        return KeyCode.F1;
+                case UnityEngine.InputSystem.Key.F2:        return KeyCode.F2;
+                case UnityEngine.InputSystem.Key.F3:        return KeyCode.F3;
+                case UnityEngine.InputSystem.Key.F4:        return KeyCode.F4;
+                case UnityEngine.InputSystem.Key.F5:        return KeyCode.F5;
+                case UnityEngine.InputSystem.Key.F6:        return KeyCode.F6;
+                case UnityEngine.InputSystem.Key.F7:        return KeyCode.F7;
+                case UnityEngine.InputSystem.Key.F8:        return KeyCode.F8;
+                case UnityEngine.InputSystem.Key.F9:        return KeyCode.F9;
+                case UnityEngine.InputSystem.Key.F10:       return KeyCode.F10;
+                case UnityEngine.InputSystem.Key.F11:       return KeyCode.F11;
+                case UnityEngine.InputSystem.Key.F12:       return KeyCode.F12;
+                case UnityEngine.InputSystem.Key.Digit0:    return KeyCode.Alpha0;
+                case UnityEngine.InputSystem.Key.Digit1:    return KeyCode.Alpha1;
+                case UnityEngine.InputSystem.Key.Digit2:    return KeyCode.Alpha2;
+                case UnityEngine.InputSystem.Key.Digit3:    return KeyCode.Alpha3;
+                case UnityEngine.InputSystem.Key.Digit4:    return KeyCode.Alpha4;
+                case UnityEngine.InputSystem.Key.Digit5:    return KeyCode.Alpha5;
+                case UnityEngine.InputSystem.Key.Digit6:    return KeyCode.Alpha6;
+                case UnityEngine.InputSystem.Key.Digit7:    return KeyCode.Alpha7;
+                case UnityEngine.InputSystem.Key.Digit8:    return KeyCode.Alpha8;
+                case UnityEngine.InputSystem.Key.Digit9:    return KeyCode.Alpha9;
+                case UnityEngine.InputSystem.Key.A:         return KeyCode.A;
+                case UnityEngine.InputSystem.Key.B:         return KeyCode.B;
+                case UnityEngine.InputSystem.Key.C:         return KeyCode.C;
+                case UnityEngine.InputSystem.Key.D:         return KeyCode.D;
+                case UnityEngine.InputSystem.Key.E:         return KeyCode.E;
+                case UnityEngine.InputSystem.Key.F:         return KeyCode.F;
+                case UnityEngine.InputSystem.Key.G:         return KeyCode.G;
+                case UnityEngine.InputSystem.Key.H:         return KeyCode.H;
+                case UnityEngine.InputSystem.Key.I:         return KeyCode.I;
+                case UnityEngine.InputSystem.Key.J:         return KeyCode.J;
+                case UnityEngine.InputSystem.Key.K:         return KeyCode.K;
+                case UnityEngine.InputSystem.Key.L:         return KeyCode.L;
+                case UnityEngine.InputSystem.Key.M:         return KeyCode.M;
+                case UnityEngine.InputSystem.Key.N:         return KeyCode.N;
+                case UnityEngine.InputSystem.Key.O:         return KeyCode.O;
+                case UnityEngine.InputSystem.Key.P:         return KeyCode.P;
+                case UnityEngine.InputSystem.Key.Q:         return KeyCode.Q;
+                case UnityEngine.InputSystem.Key.R:         return KeyCode.R;
+                case UnityEngine.InputSystem.Key.S:         return KeyCode.S;
+                case UnityEngine.InputSystem.Key.T:         return KeyCode.T;
+                case UnityEngine.InputSystem.Key.U:         return KeyCode.U;
+                case UnityEngine.InputSystem.Key.V:         return KeyCode.V;
+                case UnityEngine.InputSystem.Key.W:         return KeyCode.W;
+                case UnityEngine.InputSystem.Key.X:         return KeyCode.X;
+                case UnityEngine.InputSystem.Key.Y:         return KeyCode.Y;
+                case UnityEngine.InputSystem.Key.Z:         return KeyCode.Z;
+                default:                                    return KeyCode.None;
+            }
+        }
+#endif
 
         private void OnGUI()
         {
@@ -313,7 +504,7 @@ namespace DragonGate
 
             GUILayout.Label($"{info.CurrentInUse} / {info.TotalCount}", _styleStats, GUILayout.Width(usedTotalW - colGap));
             GUILayout.Space(colGap);
-            GUILayout.Label(info.PeakUsage.ToString(), _styleStats, GUILayout.Width(peakW));
+            GUILayout.Label($"P:{info.PeakUsage}", _styleStats, GUILayout.Width(peakW));
             GUILayout.EndHorizontal();
         }
 

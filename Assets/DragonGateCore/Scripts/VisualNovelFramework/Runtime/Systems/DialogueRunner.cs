@@ -252,6 +252,11 @@ namespace DragonGate
 
                     EndGraph();
                     break;
+                    
+                case DialogueNodeType.Illustration:
+                    HideAllCharacter();
+                    _uiDialogue?.DisplayNode(node, null, () => HandleAdvance().Forget());
+                    break;
 
                 default:
                     _uiDialogue?.DisplayNode(node,

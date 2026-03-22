@@ -338,6 +338,7 @@ namespace DragonGate.Editor
             m.AddItem(new GUIContent("추가/🗣 Character 노드"), false, () => AddNodeAt(DialogueNodeType.Character, worldPos));
             m.AddItem(new GUIContent("추가/📖 Narration 노드"), false, () => AddNodeAt(DialogueNodeType.Narration, worldPos));
             m.AddItem(new GUIContent("추가/? Condition 노드"), false, () => AddNodeAt(DialogueNodeType.Condition, worldPos));
+            m.AddItem(new GUIContent("추가/🌠 Illustration 노드"), false, () => AddNodeAt(DialogueNodeType.Illustration, worldPos));
             m.AddItem(new GUIContent("추가/▶ Start 노드"), false, () => AddNodeAt(DialogueNodeType.Start, worldPos));
             m.AddItem(new GUIContent("추가/■ Chapter End 노드"), false, () => AddNodeAt(DialogueNodeType.ChapterEnd, worldPos));
             m.ShowAsContext();

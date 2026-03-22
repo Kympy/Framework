@@ -133,6 +133,7 @@ namespace DragonGate
             else
             {
                 _speakerNameBackground?.SetActive(false);
+                _nextButton.gameObject.SetActive(true);
                 HideDialogue();
             }
         }

@@ -238,18 +238,13 @@ namespace DragonGate.Editor
                 GUILayout.EndHorizontal();
             }
 
-            if (node.NodeType != DialogueNodeType.Start &&
-                node.NodeType != DialogueNodeType.ChapterEnd &&
-                node.NodeType != DialogueNodeType.Condition)
+            if (node.NodeType == DialogueNodeType.Character || node.NodeType == DialogueNodeType.Narration)
             {
                 GUILayout.Label("대화 내용", EditorStyles.boldLabel);
 
                 // Narration: 화자 없이 대사만 나올 때를 위한 이름 (선택 사항)
-                if (node.NodeType == DialogueNodeType.Narration ||  node.NodeType == DialogueNodeType.Character)
-                {
-                    EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.SpeakerName"), s_speakerNameLabel);
-                    GUILayout.Space(6);
-                }
+                EditorGUILayout.PropertyField(so.FindProperty($"{nodePath}.SpeakerName"), s_speakerNameLabel);
+                GUILayout.Space(6);
                 // 대화 텍스트
                 var dialogueTextProp = so.FindProperty($"{nodePath}.DialogueText");
                 dialogueTextProp.isExpanded = true;
@@ -268,9 +263,7 @@ namespace DragonGate.Editor
 
             GUILayout.Space(8);
 
-            if (node.NodeType != DialogueNodeType.Start &&
-                node.NodeType != DialogueNodeType.ChapterEnd &&
-                node.NodeType != DialogueNodeType.Condition)
+            if (node.NodeType == DialogueNodeType.Character || node.NodeType == DialogueNodeType.Narration)
             {
                 GUILayout.Label("선택지", EditorStyles.boldLabel);
 

@@ -25,8 +25,10 @@ namespace DragonGate.Editor
         private List<List<DialogueNode>> _availablePaths = new();
         private List<Dictionary<string, int>> _pathSelectedChoices = new();
         private int _currentPathIndex = 0;
-        private DialogueNode SelectedNode => _graph?.Nodes.Find(n => n.nodeId == _selectedNodeId);
         private SerializedObject _graphSO;
+        private float _savedNotifyTime = 3f;
+        private float _notifyElapsedTime = 0f;
+        private DialogueNode SelectedNode => _graph?.Nodes.Find(n => n.nodeId == _selectedNodeId);
 
         // 설정
         private SerializedObject _graphSettingsSO;
@@ -158,6 +160,13 @@ namespace DragonGate.Editor
             DrawInspectorPanel(inspectorRect);
             HandleSplitter(splitterRect);
             HandleEvents(Event.current, canvasRect);
+
+            if (_notifyElapsedTime > 0f)
+            {
+                var notifyRect = new Rect((canvasRect.xMin + canvasRect.xMax) * 0.5f, (canvasRect.yMax - 60f), 400f, 40f);
+                DrawNotifyPopup(notifyRect, "저장되었습니다.");
+                _notifyElapsedTime -= Time.deltaTime;
+            }
 
             if (GUI.changed) Repaint();
         }

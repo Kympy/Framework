@@ -27,6 +27,7 @@ namespace DragonGate.Editor
                 { DialogueNodeType.Narration, new Color(0.38f, 0.28f, 0.48f) },
                 { DialogueNodeType.ChapterEnd, new Color(0.50f, 0.18f, 0.18f) },
                 { DialogueNodeType.Condition, new Color(0.45f, 0.35f, 0.12f) },
+                { DialogueNodeType.Illustration, new Color(0.75f, 0.65f, 0.22f) },
             };
 
         private static readonly Dictionary<DialogueNodeType, string> NODE_ICONS =
@@ -37,6 +38,7 @@ namespace DragonGate.Editor
                 { DialogueNodeType.Narration, "📖 NARRATION" },
                 { DialogueNodeType.ChapterEnd, "■ CHAPTER END" },
                 { DialogueNodeType.Condition, "? CONDITION" },
+                { DialogueNodeType.Illustration, "🌠 ILLUSTRATION" },
             };
     }
 }

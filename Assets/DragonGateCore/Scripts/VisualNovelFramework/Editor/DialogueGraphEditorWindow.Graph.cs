@@ -57,6 +57,7 @@ namespace DragonGate.Editor
             EditorUtility.SetDirty(_graph);
             AssetDatabase.SaveAssets();
             Debug.Log($"[VNFramework] '{_graph.name}' 저장 완료");
+            _notifyElapsedTime = _savedNotifyTime;
         }
     }
 }

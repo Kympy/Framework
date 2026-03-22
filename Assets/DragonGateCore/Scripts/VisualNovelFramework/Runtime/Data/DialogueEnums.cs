@@ -9,6 +9,7 @@ namespace DragonGate
         Character  = 10,
         Narration  = 20,
         Condition  = 30,
+        Illustration = 40,
         ChapterEnd = 100,
     }
 

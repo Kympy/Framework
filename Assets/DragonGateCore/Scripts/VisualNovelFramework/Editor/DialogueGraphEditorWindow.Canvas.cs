@@ -288,5 +288,11 @@ namespace DragonGate.Editor
         {
             GUI.Label(new Rect(0, 0, rect.width, rect.height), text, _centeredLabelStyle);
         }
+
+        private void DrawNotifyPopup(Rect rect, string text)
+        {
+            EditorGUI.DrawRect(rect, new Color(0.1f, 0.1f, 0.1f, 0.9f));
+            GUI.Label(rect, text, _centeredLabelStyle);
+        }
     }
 }
